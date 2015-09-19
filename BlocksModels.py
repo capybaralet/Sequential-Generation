@@ -13,7 +13,7 @@ from blocks.filter import VariableFilter
 from blocks.bricks.base import application, _Brick, Brick, lazy
 from blocks.bricks.recurrent import BaseRecurrent, recurrent
 from blocks.initialization import Constant, IsotropicGaussian, Orthogonal
-from blocks.bricks import Random, MLP, Linear, Tanh, Softmax, Sigmoid, Initializable
+from blocks.bricks import Random, MLP, Linear, Tanh, Softmax, Logistic, Initializable
 from blocks.bricks import Tanh, Identity, Activation, Feedforward
 from blocks.bricks.cost import BinaryCrossEntropy
 from blocks.utils import shared_floatx_nans
@@ -71,12 +71,12 @@ class BiasedLSTM(BaseRecurrent, Initializable):
         add_role(self.W_cell_to_forget, WEIGHT)
         add_role(self.W_cell_to_out, WEIGHT)
 
-        self.params = [self.W_state, self.W_cell_to_in, self.W_cell_to_forget,
+        self.parameters = [self.W_state, self.W_cell_to_in, self.W_cell_to_forget,
                        self.W_cell_to_out]
         return
 
     def _initialize(self):
-        for w in self.params:
+        for w in self.parameters:
             self.weights_init.initialize(w, self.rng)
         return
 
@@ -455,12 +455,12 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
         add_role(self.zm_mean, PARAMETER)
         add_role(self.zm_logvar, PARAMETER)
         # add the theano shared variables to our parameter lists
-        self.params.extend([ self.c_0, self.zm_mean, self.zm_logvar ])
+        self.parameters.extend([ self.c_0, self.zm_mean, self.zm_logvar ])
         return
 
     def _initialize(self):
         # initialize to all parameters zeros...
-        for p in self.params:
+        for p in self.parameters:
             p_nan = p.get_value(borrow=False)
             p_zeros = numpy.zeros(p_nan.shape)
             p.set_value(p_zeros.astype(theano.config.floatX))
@@ -807,7 +807,7 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
         """
         numpy_params = self.get_model_params(ary_type='numpy')
         f_handle = file(f_name, 'wb')
-        # dump the dict self.params, which just holds "simple" python values
+        # dump the dict self.parameters, which just holds "simple" python values
         cPickle.dump(numpy_params, f_handle, protocol=-1)
         f_handle.close()
         return
@@ -876,12 +876,12 @@ class IMoCLDrawModels(BaseRecurrent, Initializable, Random):
         self.c_0 = shared_floatx_nans((c_dim,), name='c_0')
         add_role(self.c_0, PARAMETER)
         # add the theano shared variables to our parameter lists
-        self.params.extend([ self.c_0 ])
+        self.parameters.extend([ self.c_0 ])
         return
 
     def _initialize(self):
         # initialize all parameters to zeros...
-        for p in self.params:
+        for p in self.parameters:
             p_nan = p.get_value(borrow=False)
             p_zeros = numpy.zeros(p_nan.shape)
             p.set_value(p_zeros.astype(theano.config.floatX))
@@ -1283,7 +1283,7 @@ class IMoCLDrawModels(BaseRecurrent, Initializable, Random):
         """
         numpy_params = self.get_model_params(ary_type='numpy')
         f_handle = file(f_name, 'wb')
-        # dump the dict self.params, which just holds "simple" python values
+        # dump the dict self.parameters, which just holds "simple" python values
         cPickle.dump(numpy_params, f_handle, protocol=-1)
         f_handle.close()
         return

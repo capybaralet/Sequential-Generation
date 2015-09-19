@@ -64,13 +64,13 @@ class TwoStageModel1(object):
         self.rng = RandStream(rng.randint(100000))
 
         # grab the user-provided parameters
-        self.params = params
-        self.x_type = self.params['x_type']
+        self.parameters = params
+        self.x_type = self.parameters['x_type']
         assert((self.x_type == 'bernoulli') or (self.x_type == 'gaussian'))
-        if 'obs_transform' in self.params:
-            assert((self.params['obs_transform'] == 'sigmoid') or \
-                    (self.params['obs_transform'] == 'none'))
-            if self.params['obs_transform'] == 'sigmoid':
+        if 'obs_transform' in self.parameters:
+            assert((self.parameters['obs_transform'] == 'sigmoid') or \
+                    (self.parameters['obs_transform'] == 'none'))
+            if self.parameters['obs_transform'] == 'sigmoid':
                 self.obs_transform = lambda x: T.nnet.sigmoid(x)
             else:
                 self.obs_transform = lambda x: x
@@ -177,7 +177,7 @@ class TwoStageModel1(object):
         self.set_lam_l2w(1e-5)
 
         # get optimizable parameters belonging to the TwoStageModel
-        self_params = [self.obs_logvar] #+ [self.p_z_mean, self.p_z_logvar]
+        self.parameters = [self.obs_logvar] #+ [self.p_z_mean, self.p_z_logvar]
         # get optimizable parameters belonging to the underlying networks
         child_params = []
         child_params.extend(self.q_z_given_x.mlp_params)
@@ -185,7 +185,7 @@ class TwoStageModel1(object):
         child_params.extend(self.p_h_given_z.mlp_params)
         child_params.extend(self.p_x_given_h.mlp_params)
         # make a joint list of all optimizable parameters
-        self.joint_params = self_params + child_params
+        self.joint_params = self.parameters + child_params
 
         #################################
         # CONSTRUCT THE KLD-BASED COSTS #
@@ -441,13 +441,13 @@ class TwoStageModel2(object):
         self.rng = RandStream(rng.randint(100000))
 
         # grab the user-provided parameters
-        self.params = params
-        self.x_type = self.params['x_type']
+        self.parameters = params
+        self.x_type = self.parameters['x_type']
         assert((self.x_type == 'bernoulli') or (self.x_type == 'gaussian'))
-        if 'obs_transform' in self.params:
-            assert((self.params['obs_transform'] == 'sigmoid') or \
-                    (self.params['obs_transform'] == 'none'))
-            if self.params['obs_transform'] == 'sigmoid':
+        if 'obs_transform' in self.parameters:
+            assert((self.parameters['obs_transform'] == 'sigmoid') or \
+                    (self.parameters['obs_transform'] == 'none'))
+            if self.parameters['obs_transform'] == 'sigmoid':
                 self.obs_transform = lambda x: T.nnet.sigmoid(x)
             else:
                 self.obs_transform = lambda x: x
@@ -559,7 +559,7 @@ class TwoStageModel2(object):
         self.set_lam_l2w(1e-5)
 
         # get optimizable parameters belonging to the TwoStageModel
-        self_params = [self.obs_logvar] #+ [self.p_z_mean, self.p_z_logvar]
+        self.parameters = [self.obs_logvar] #+ [self.p_z_mean, self.p_z_logvar]
         # get optimizable parameters belonging to the underlying networks
         child_params = []
         child_params.extend(self.q_h_given_x.mlp_params)
@@ -567,7 +567,7 @@ class TwoStageModel2(object):
         child_params.extend(self.p_h_given_z.mlp_params)
         child_params.extend(self.p_x_given_h.mlp_params)
         # make a joint list of all optimizable parameters
-        self.joint_params = self_params + child_params
+        self.joint_params = self.parameters + child_params
 
 
         #################################

@@ -71,7 +71,7 @@ class HydraNet(object):
         #####################################################
         # Process user-supplied parameters for this network #
         #####################################################
-        self.params = params
+        self.parameters = params
         if 'build_theano_funcs' in params:
             self.build_theano_funcs = params['build_theano_funcs']
         else:
@@ -303,7 +303,7 @@ class HydraNet(object):
         Return a clone of this network, with shared parameters but with
         different symbolic input variables.
         """
-        clone_net = HydraNet(rng=rng, Xd=Xd, params=self.params, \
+        clone_net = HydraNet(rng=rng, Xd=Xd, params=self.parameters, \
                 shared_param_dicts=self.shared_param_dicts)
         return clone_net
 
@@ -325,7 +325,7 @@ class HydraNet(object):
                     old_sp_forked = old_sp.get_value(borrow=False)
                     new_sp = theano.shared(value=old_sp_forked)
                     new_spds[k1][i][k2] = new_sp
-        clone_net = HydraNet(rng=rng, Xd=Xd, params=self.params, \
+        clone_net = HydraNet(rng=rng, Xd=Xd, params=self.parameters, \
                 shared_param_dicts=new_spds)
         return clone_net
 
@@ -338,8 +338,8 @@ class HydraNet(object):
         """
         assert(not (f_name is None))
         f_handle = file(f_name, 'wb')
-        # dump the dict self.params, which just holds "simple" python values
-        cPickle.dump(self.params, f_handle, protocol=-1)
+        # dump the dict self.parameters, which just holds "simple" python values
+        cPickle.dump(self.parameters, f_handle, protocol=-1)
         # make a copy of self.shared_param_dicts, with numpy arrays in place
         # of the theano shared variables
         numpy_param_dicts = {'shared': [], 'output': []}
@@ -359,8 +359,8 @@ class HydraNet(object):
         Dump important stuff to a dict capable of rebooting the model.
         """
         model_dict = {}
-        # dump the dict self.params, which just holds "simple" python values
-        model_dict['params'] = self.params
+        # dump the dict self.parameters, which just holds "simple" python values
+        model_dict['params'] = self.parameters
         # make a copy of self.shared_param_dicts, with numpy arrays in place
         # of the theano shared variables
         numpy_param_dicts = {'shared': [], 'output': []}

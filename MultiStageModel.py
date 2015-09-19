@@ -66,13 +66,13 @@ class MultiStageModel(object):
         self.model_init_obs = model_init_obs
 
         # grab the user-provided parameters
-        self.params = params
-        self.x_type = self.params['x_type']
+        self.parameters = params
+        self.x_type = self.parameters['x_type']
         assert((self.x_type == 'bernoulli') or (self.x_type == 'gaussian'))
-        if 'obs_transform' in self.params:
-            assert((self.params['obs_transform'] == 'sigmoid') or \
-                    (self.params['obs_transform'] == 'none'))
-            if self.params['obs_transform'] == 'sigmoid':
+        if 'obs_transform' in self.parameters:
+            assert((self.parameters['obs_transform'] == 'sigmoid') or \
+                    (self.parameters['obs_transform'] == 'none'))
+            if self.parameters['obs_transform'] == 'sigmoid':
                 self.obs_transform = lambda x: T.nnet.sigmoid(x)
             else:
                 self.obs_transform = lambda x: x

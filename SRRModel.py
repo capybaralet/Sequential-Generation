@@ -66,22 +66,22 @@ class SRRModel(object):
         self.rng = RandStream(rng.randint(100000))
 
         # grab the user-provided parameters
-        self.params = params
-        self.x_dim = self.params['x_dim']
-        self.z_dim = self.params['z_dim']
-        self.s_dim = self.params['s_dim']
-        self.use_p_x_given_si = self.params['use_p_x_given_si']
-        self.step_type = self.params['step_type']
-        self.x_type = self.params['x_type']
+        self.parameters = params
+        self.x_dim = self.parameters['x_dim']
+        self.z_dim = self.parameters['z_dim']
+        self.s_dim = self.parameters['s_dim']
+        self.use_p_x_given_si = self.parameters['use_p_x_given_si']
+        self.step_type = self.parameters['step_type']
+        self.x_type = self.parameters['x_type']
         if self.use_p_x_given_si:
             print("Constructing hypotheses indirectly in s-space...")
         else:
             print("Constructing hypotheses directly in x-space...")
             assert(self.s_dim == self.x_dim)
-        if 'obs_transform' in self.params:
-            assert((self.params['obs_transform'] == 'sigmoid') or \
-                    (self.params['obs_transform'] == 'none'))
-            if self.params['obs_transform'] == 'sigmoid':
+        if 'obs_transform' in self.parameters:
+            assert((self.parameters['obs_transform'] == 'sigmoid') or \
+                    (self.parameters['obs_transform'] == 'none'))
+            if self.parameters['obs_transform'] == 'sigmoid':
                 self.obs_transform = lambda x: T.nnet.sigmoid(x)
             else:
                 self.obs_transform = lambda x: x
@@ -91,15 +91,15 @@ class SRRModel(object):
             self.obs_transform = lambda x: T.nnet.sigmoid(x)
         self.shared_param_dicts = shared_param_dicts
         # Deal with revelation scheduling
-        if ('rev_masks' in self.params) and (self.params['rev_masks'] is not None):
-            rmp = self.params['rev_masks'][0].astype(theano.config.floatX)
-            rmq = self.params['rev_masks'][1].astype(theano.config.floatX)
+        if ('rev_masks' in self.parameters) and (self.parameters['rev_masks'] is not None):
+            rmp = self.parameters['rev_masks'][0].astype(theano.config.floatX)
+            rmq = self.parameters['rev_masks'][1].astype(theano.config.floatX)
             self.rev_masks_p = theano.shared(value=rmp, name='srrm_rev_masks_p')
             self.rev_masks_q = theano.shared(value=rmq, name='srrm_rev_masks_q')
             self.rev_sched = None
             self.use_rev_masks = True
         else:
-            self.rev_sched = self.params['rev_sched']
+            self.rev_sched = self.parameters['rev_sched']
             self.rev_masks_p = None
             self.rev_masks_q = None
             self.use_rev_masks = False
@@ -125,7 +125,7 @@ class SRRModel(object):
         self.p_masks = T.tensor3()   # revelation masks for primary policy
         self.q_masks = T.tensor3()   # revelation masks for guide policy
         if self.use_rev_masks:
-            self.total_steps = self.params['rev_masks'][0].shape[0]
+            self.total_steps = self.parameters['rev_masks'][0].shape[0]
         else:
             self.total_steps = sum([rb[0] for rb in self.rev_sched])
 
@@ -699,8 +699,8 @@ class SRRModel(object):
         """
         assert(not (f_name is None))
         f_handle = file(f_name, 'wb')
-        # dump the dict self.params, which just holds "simple" python values
-        cPickle.dump(self.params, f_handle, protocol=-1)
+        # dump the dict self.parameters, which just holds "simple" python values
+        cPickle.dump(self.parameters, f_handle, protocol=-1)
         # make a copy of self.shared_param_dicts, with numpy arrays in place
         # of the theano shared variables
         numpy_param_dicts = {}

@@ -59,24 +59,24 @@ class GPSImputer(object):
         self.rng = RandStream(rng.randint(100000))
 
         # grab the user-provided parameters
-        self.params = params
-        self.x_dim = self.params['x_dim']
-        self.z_dim = self.params['z_dim']
-        self.s_dim = self.params['s_dim']
-        self.use_p_x_given_si = self.params['use_p_x_given_si']
-        self.imp_steps = self.params['imp_steps']
-        self.step_type = self.params['step_type']
-        self.x_type = self.params['x_type']
+        self.parameters = params
+        self.x_dim = self.parameters['x_dim']
+        self.z_dim = self.parameters['z_dim']
+        self.s_dim = self.parameters['s_dim']
+        self.use_p_x_given_si = self.parameters['use_p_x_given_si']
+        self.imp_steps = self.parameters['imp_steps']
+        self.step_type = self.parameters['step_type']
+        self.x_type = self.parameters['x_type']
         if self.use_p_x_given_si:
             print("Constructing hypotheses via p_x_given_si...")
         else:
             print("Constructing hypotheses directly in x-space...")
             assert(self.s_dim == self.x_dim)
         assert((self.x_type == 'bernoulli') or (self.x_type == 'gaussian'))
-        if 'obs_transform' in self.params:
-            assert((self.params['obs_transform'] == 'sigmoid') or \
-                    (self.params['obs_transform'] == 'none'))
-            if self.params['obs_transform'] == 'sigmoid':
+        if 'obs_transform' in self.parameters:
+            assert((self.parameters['obs_transform'] == 'sigmoid') or \
+                    (self.parameters['obs_transform'] == 'none'))
+            if self.parameters['obs_transform'] == 'sigmoid':
                 self.obs_transform = lambda x: T.nnet.sigmoid(x)
             else:
                 self.obs_transform = lambda x: x
@@ -590,8 +590,8 @@ class GPSImputer(object):
         """
         assert(not (f_name is None))
         f_handle = file(f_name, 'wb')
-        # dump the dict self.params, which just holds "simple" python values
-        cPickle.dump(self.params, f_handle, protocol=-1)
+        # dump the dict self.parameters, which just holds "simple" python values
+        cPickle.dump(self.parameters, f_handle, protocol=-1)
         # make a copy of self.shared_param_dicts, with numpy arrays in place
         # of the theano shared variables
         numpy_param_dicts = {}

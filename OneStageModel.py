@@ -51,27 +51,27 @@ class OneStageModel(object):
 
         # grab the user-provided parameters
         if params is None:
-            self.params = {}
+            self.parameters = {}
         else:
-            self.params = params
-        if 'xt_transform' in self.params:
-            assert((self.params['xt_transform'] == 'sigmoid') or \
-                    (self.params['xt_transform'] == 'none'))
-            if self.params['xt_transform'] == 'sigmoid':
+            self.parameters = params
+        if 'xt_transform' in self.parameters:
+            assert((self.parameters['xt_transform'] == 'sigmoid') or \
+                    (self.parameters['xt_transform'] == 'none'))
+            if self.parameters['xt_transform'] == 'sigmoid':
                 self.xt_transform = lambda x: T.nnet.sigmoid(x)
             else:
                 self.xt_transform = lambda x: x
         else:
             self.xt_transform = lambda x: T.nnet.sigmoid(x)
-        if 'logvar_bound' in self.params:
-            self.logvar_bound = self.params['logvar_bound']
+        if 'logvar_bound' in self.parameters:
+            self.logvar_bound = self.parameters['logvar_bound']
         else:
             self.logvar_bound = 10.0
         #
         # x_type: this tells if we're using bernoulli or gaussian model for
         #         the observations
         #
-        self.x_type = self.params['x_type']
+        self.x_type = self.parameters['x_type']
         assert((self.x_type == 'bernoulli') or (self.x_type == 'gaussian'))
 
         # record the dimensions of various spaces relevant to this model

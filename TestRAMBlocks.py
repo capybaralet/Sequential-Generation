@@ -258,7 +258,7 @@ def test_seq_cond_gen_static(step_type='add'):
     # Get some training data #
     ##########################
     rng = np.random.RandomState(1234)
-    dataset = 'data/mnist.pkl.gz'
+    dataset = '/data/lisa/data/mnist/mnist.pkl.gz'
     datasets = load_udm(dataset, as_shared=False, zero_mean=False)
     # get training/validation/test images
     Xtr = datasets[0][0]

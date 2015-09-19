@@ -266,7 +266,7 @@ class HiddenLayer(object):
         self.act_l2_sum = T.sum(self.noisy_linear**2.) / self.output.size
 
         # Conveniently package layer parameters
-        self.params = [self.W, self.b, self.b_in, self.s_in]
+        self.parameters = [self.W, self.b, self.b_in, self.s_in]
         self.shared_param_dicts = { \
                 'W': self.W, \
                 'b': self.b, \
@@ -412,7 +412,7 @@ class ConvPoolLayer(object):
         self.output = self.activation(self.noisy_linear_output)
 
         # store parameters of this layer
-        self.params = [self.W, self.b]
+        self.parameters = [self.W, self.b]
 
         return
 
@@ -518,7 +518,7 @@ class DiscLayer(object):
         self.act_l2_sum = T.sum(self.output**2.0) / self.output.shape[0]
 
         # Conveniently package layer parameters
-        self.params = [self.W, self.b]
+        self.parameters = [self.W, self.b]
         # little layer construction complete...
         return
 
@@ -568,7 +568,7 @@ class DAELayer(object):
         self.b_v = b_v
 
         # Put the learnable/optimizable parameters into a list
-        self.params = [self.W, self.b_h, self.b_v]
+        self.parameters = [self.W, self.b_h, self.b_v]
         # Beep boop... layer construction complete...
         return
 

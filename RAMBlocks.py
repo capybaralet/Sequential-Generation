@@ -13,7 +13,7 @@ from blocks.filter import VariableFilter
 from blocks.bricks.base import application, _Brick, Brick, lazy
 from blocks.bricks.recurrent import BaseRecurrent, recurrent
 from blocks.initialization import Constant, IsotropicGaussian, Orthogonal
-from blocks.bricks import Random, MLP, Linear, Tanh, Softmax, Sigmoid, Initializable
+from blocks.bricks import Random, MLP, Linear, Tanh, Softmax, Logistic, Initializable
 from blocks.bricks import Tanh, Identity, Activation, Feedforward
 from blocks.bricks.cost import BinaryCrossEntropy
 from blocks.utils import shared_floatx_nans
@@ -69,7 +69,7 @@ class SimpleAttentionCore2d(Initializable):
 
         # make list of child models (for Blocks stuff)
         self.children = [ self.con_decoder ]
-        self.params = [ self.sigma_scale ]
+        self.parameters = [ self.sigma_scale ]
         return
 
     def get_dim(self, name):
@@ -309,7 +309,7 @@ class SimpleAttentionCore1d(Initializable):
 
         # make list of child models (for Blocks stuff)
         self.children = [ self.con_decoder ]
-        self.params = [ self.sigma_scale ]
+        self.parameters = [ self.sigma_scale ]
         return
 
     def get_dim(self, name):
@@ -640,14 +640,14 @@ class OISeqCondGen(BaseRecurrent, Initializable, Random):
         self.hm_0 = shared_floatx_nans((1,hm_dim), name='hm_0')
         add_role(self.hm_0, PARAMETER)
         # add the theano shared variables to our parameter lists
-        self.params.extend([ self.c_0, \
+        self.parameters.extend([ self.c_0, \
                              self.cc_0, self.cg_0, self.cv_0, self.cm_0, \
                              self.hc_0, self.hg_0, self.hv_0, self.hm_0 ])
         return
 
     def _initialize(self):
         # initialize all OISeqCondGen-owned parameters to zeros...
-        for p in self.params:
+        for p in self.parameters:
             p_nan = p.get_value(borrow=False)
             p_zeros = numpy.zeros(p_nan.shape)
             p.set_value(p_zeros.astype(theano.config.floatX))
@@ -923,7 +923,7 @@ class OISeqCondGen(BaseRecurrent, Initializable, Random):
         """
         numpy_params = self.get_model_params(ary_type='numpy')
         f_handle = file(f_name, 'wb')
-        # dump the dict self.params, which just holds "simple" python values
+        # dump the dict self.parameters, which just holds "simple" python values
         cPickle.dump(numpy_params, f_handle, protocol=-1)
         f_handle.close()
         return
@@ -1135,14 +1135,14 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
         self.hv_0 = shared_floatx_nans((1,hv_dim), name='hv_0')
         add_role(self.hv_0, PARAMETER)
         # add the theano shared variables to our parameter lists
-        self.params.extend([ self.c_0, \
+        self.parameters.extend([ self.c_0, \
                              self.cc_0, self.cg_0, self.cv_0, \
                              self.hc_0, self.hg_0, self.hv_0 ])
         return
 
     def _initialize(self):
         # initialize all parameters to zeros...
-        for p in self.params:
+        for p in self.parameters:
             p_nan = p.get_value(borrow=False)
             p_zeros = numpy.zeros(p_nan.shape)
             p.set_value(p_zeros.astype(theano.config.floatX))
@@ -1476,7 +1476,7 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
         """
         numpy_params = self.get_model_params(ary_type='numpy')
         f_handle = file(f_name, 'wb')
-        # dump the dict self.params, which just holds "simple" python values
+        # dump the dict self.parameters, which just holds "simple" python values
         cPickle.dump(numpy_params, f_handle, protocol=-1)
         f_handle.close()
         return
