@@ -993,6 +993,7 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
                     con_mlp_in, con_rnn, con_mlp_out,
                     gen_mlp_in, gen_rnn, gen_mlp_out,
                     var_mlp_in, var_rnn, var_mlp_out,
+                    test_value = None,
                     **kwargs):
         super(SeqCondGen, self).__init__(**kwargs)
         if not ((step_type == 'add') or (step_type == 'jump')):
@@ -1006,6 +1007,7 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
         self.step_type = step_type
         self.x_dim = x_dim
         self.y_dim = y_dim
+        self.test_value = test_value
         # construct a sequence of scales for measuring NLL. we'll use scales
         # corresponding to some fixed number of guaranteed steps, followed by
         # a constant probability of early stopping. any "residual" probability
@@ -1321,6 +1323,10 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
             x_sym = tensor.matrix('x_sym')
             y_sym = tensor.matrix('y_sym')
 
+        if self.test_value is not None:
+            x_sym.tag.test_value = self.test_value
+            y_sym.tag.test_value = self.test_value
+
         # collect estimates of y given x produced by this model
         cs, h_cons, nlls, kl_q2ps, kl_p2qs, kl_p2gs, att_maps, read_imgs = \
                 self.process_inputs(x_sym, y_sym)
@@ -1402,6 +1408,9 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
         else:
             x_sym = tensor.matrix('x_sym_att_funcs')
             y_sym = tensor.matrix('y_sym_att_funcs')
+        if self.test_value is not None:
+            x_sym.tag.test_value = self.test_value
+            y_sym.tag.test_value = self.test_value
         # collect estimates of y given x produced by this model
         cs, h_cons, nlls, kl_q2ps, kl_p2qs, kl_p2gs, att_maps, read_imgs = \
                 self.process_inputs(x_sym, y_sym)
