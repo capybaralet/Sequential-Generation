@@ -21,7 +21,7 @@ from blocks.roles import add_role, WEIGHT, BIAS, PARAMETER, AUXILIARY
 
 from BlocksAttention import ZoomableAttention2d
 from DKCode import get_adam_updates
-from HelperFuncs import constFX, to_fX
+from HelperFuncs import constFX, to_fX, tanh_clip
 from LogPDFs import log_prob_bernoulli, gaussian_kld
 
 ################################
@@ -434,6 +434,8 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
         self.dec_rnn = dec_rnn
         self.dec_mlp_out = dec_mlp_out
         self.writer_mlp = writer_mlp
+        # regularization noise on RNN states
+        self.rnn_noise = 0.025
 
         # record the sub-models that underlie this model
         self.children = [self.mix_enc_mlp, self.mix_dec_mlp, self.reader_mlp,
@@ -471,13 +473,13 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
             return self.reader_mlp.get_dim('x_dim')
         elif name == 'z_mix':
             return self.mix_enc_mlp.get_dim('output')
-        elif name == 'h_enc':
+        elif name in ['h_enc','u_enc']:
             return self.enc_rnn.get_dim('states')
         elif name == 'c_enc':
             return self.enc_rnn.get_dim('cells')
         elif name == 'z_gen':
             return self.enc_mlp_out.get_dim('output')
-        elif name == 'h_dec':
+        elif name in ['h_dec','u_dec']:
             return self.dec_rnn.get_dim('states')
         elif name == 'c_dec':
             return self.dec_rnn.get_dim('cells')
@@ -495,10 +497,13 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
 
     #------------------------------------------------------------------------
 
-    @recurrent(sequences=['u'], contexts=['x'],
+    @recurrent(sequences=['u', 'u_enc', 'u_dec'], contexts=['x'],
                states=['c', 'h_enc', 'c_enc', 'h_dec', 'c_dec', 'nll', 'kl_q2p', 'kl_p2q'],
                outputs=['c', 'h_enc', 'c_enc', 'h_dec', 'c_dec', 'nll', 'kl_q2p', 'kl_p2q'])
-    def iterate(self, u, c, h_enc, c_enc, h_dec, c_dec, nll, kl_q2p, kl_p2q, x):
+    def iterate(self, u, u_enc, u_dec, c, h_enc, c_enc, h_dec, c_dec, nll, kl_q2p, kl_p2q, x):
+
+
+        # get current prediction
         if self.step_type == 'add':
             # additive steps use c as a "direct workspace", which means it's
             # already directly comparable to x.
@@ -507,13 +512,16 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
             # non-additive steps use c_dec as a "latent workspace", which means
             # it needs to be transformed before being comparable to x.
             c = self.writer_mlp.apply(c_dec)
+        c_as_x = tensor.nnet.sigmoid(tanh_clip(c, clip_val=15.0))
         # get the current "reconstruction error"
-        x_hat = x - tensor.nnet.sigmoid(c)
+        x_hat = x - c_as_x
         r_enc = self.reader_mlp.apply(x, x_hat, h_dec)
         # update the encoder RNN state
         i_enc = self.enc_mlp_in.apply(tensor.concatenate([r_enc, h_dec], axis=1))
         h_enc, c_enc = self.enc_rnn.apply(states=h_enc, cells=c_enc,
                                           inputs=i_enc, iterate=False)
+        # add noise to the encoder state
+        h_enc = h_enc + u_enc
         # estimate encoder conditional over z given h_enc
         q_gen_mean, q_gen_logvar, q_z_gen = \
                 self.enc_mlp_out.apply(h_enc, u)
@@ -525,13 +533,15 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
         i_dec = self.dec_mlp_in.apply(tensor.concatenate([z_gen], axis=1))
         h_dec, c_dec = self.dec_rnn.apply(states=h_dec, cells=c_dec, \
                                           inputs=i_dec, iterate=False)
+        # add noise to the decoder state
+        h_dec = h_dec + u_dec
         # additive steps use c as the "workspace"
         if self.step_type == 'add':
             c = c + self.writer_mlp.apply(h_dec)
         else:
             c = self.writer_mlp.apply(c_dec)
         # compute the NLL of the reconstructiion as of this step
-        c_as_x = tensor.nnet.sigmoid(c)
+        c_as_x = tensor.nnet.sigmoid(tanh_clip(c, clip_val=15.0))
         nll = -1.0 * tensor.flatten(log_prob_bernoulli(x, c_as_x))
         # compute KL(q || p) and KL(p || q) for this step
         kl_q2p = tensor.sum(gaussian_kld(q_gen_mean, q_gen_logvar, \
@@ -540,11 +550,10 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
                             q_gen_mean, q_gen_logvar), axis=1)
         return c, h_enc, c_enc, h_dec, c_dec, nll, kl_q2p, kl_p2q
 
-    @recurrent(sequences=['u'], contexts=[],
+    @recurrent(sequences=['u', 'u_dec'], contexts=[],
                states=['c', 'h_dec', 'c_dec'],
                outputs=['c', 'h_dec', 'c_dec'])
-    def decode(self, u, c, h_dec, c_dec):
-        batch_size = c.shape[0]
+    def decode(self, u, u_dec, c, h_dec, c_dec):
         # sample z from p(z | h_dec) -- we used q(z | h_enc) during training
         p_gen_mean, p_gen_logvar, p_z_gen = \
                 self.dec_mlp_out.apply(h_dec, u)
@@ -554,6 +563,8 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
         h_dec, c_dec = self.dec_rnn.apply(
                     states=h_dec, cells=c_dec,
                     inputs=i_dec, iterate=False)
+        # add noise to decoder state
+        h_dec = h_dec + u_dec
         # additive steps use c as the "workspace"
         if self.step_type == 'add':
             c = c + self.writer_mlp.apply(h_dec)
@@ -588,7 +599,14 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
         hd0 = mix_init[:, cd_dim:(cd_dim+hd_dim)]
         ce0 = mix_init[:, (cd_dim+hd_dim):(cd_dim+hd_dim+ce_dim)]
         he0 = mix_init[:, (cd_dim+hd_dim+ce_dim):]
-        c0 = tensor.zeros_like(x_out) + self.c_0
+        # add noise to initial decoder state
+        hd0 = hd0 + (self.rnn_noise * self.theano_rng.normal(
+                        size=(hd0.shape[0], hd0.shape[1]),
+                        avg=0., std=1.))
+        # add noise to initial encoder state
+        he0 = he0 + (self.rnn_noise * self.theano_rng.normal(
+                        size=(he0.shape[0], hd0.shape[1]),
+                        avg=0., std=1.))
 
         # compute KL-divergence information for the mixture init step
         kl_q2p_mix = tensor.sum(gaussian_kld(z_mix_mean, z_mix_logvar, \
@@ -602,14 +620,21 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
         u_gen = self.theano_rng.normal(
                     size=(self.n_iter, batch_size, z_gen_dim),
                     avg=0., std=1.)
+        u_enc = self.rnn_noise * self.theano_rng.normal(
+                    size=(self.n_iter, batch_size, he_dim),
+                    avg=0., std=1.)
+        u_dec = self.rnn_noise * self.theano_rng.normal(
+                    size=(self.n_iter, batch_size, hd_dim),
+                    avg=0., std=1.)
 
         # run the multi-stage guided generative process
         c, _, _, _, _, step_nlls, kl_q2p_gen, kl_p2q_gen = \
-                self.iterate(u=u_gen, c=c0, h_enc=he0, c_enc=ce0, \
+                self.iterate(u=u_gen, u_enc=u_enc, u_dec=u_dec, \
+                             c=c0, h_enc=he0, c_enc=ce0, \
                              h_dec=hd0, c_dec=cd0, x=x_out)
 
         # grab the observations generated by the multi-stage process
-        recons = tensor.nnet.sigmoid(c[-1,:,:])
+        recons = tensor.nnet.sigmoid(tanh_clip(c[-1,:,:], clip_val=15.0))
         recons.name = "recons"
         # get the NLL after the final update for each example
         nll = step_nlls[-1]
@@ -649,15 +674,22 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
         cd0 = mix_init[:, :cd_dim]
         hd0 = mix_init[:, cd_dim:(cd_dim+hd_dim)]
         c0 = tensor.alloc(0.0, n_samples, c_dim) + self.c_0
+        # add noise to initial decoder state
+        hd0 = hd0 + (self.rnn_noise * self.theano_rng.normal(
+                        size=(hd0.shape[0], hd0.shape[1]),
+                        avg=0., std=1.))
 
         # sample from zero-mean unit-std. Gaussian for use in scan op
         u_gen = self.theano_rng.normal(
                     size=(self.n_iter, n_samples, z_gen_dim),
                     avg=0., std=1.)
+        u_dec = self.rnn_noise * self.theano_rng.normal(
+                    size=(self.n_iter, n_samples, hd_dim),
+                    avg=0., std=1.)
 
-        c_samples, _, _, = self.decode(u=u_gen, c=c0, h_dec=hd0, c_dec=cd0)
-        #c_samples, _, _, center_y, center_x, delta = self.decode(u)
-        x_samples = tensor.nnet.sigmoid(c_samples)
+        c_samples, _, _, = self.decode(u=u_gen, u_dec=u_dec, \
+                                       c=c0, h_dec=hd0, c_dec=cd0)
+        x_samples = tensor.nnet.sigmoid(tanh_clip(c_samples, clip_val=15.0))
         return [x_samples, c_samples]
 
     def build_model_funcs(self):
@@ -680,6 +712,7 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
         self.kld_q2p_term.name = "kld_q2p_term"
         self.kld_p2q_term = kl_p2q.sum(axis=0).mean()
         self.kld_p2q_term.name = "kld_p2q_term"
+        self.kld_q2p_step = kl_q2p.mean(axis=1)
 
         # get the proper VFE bound on NLL
         self.nll_bound = self.nll_term + self.kld_q2p_term
@@ -690,12 +723,12 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
         self.joint_params = VariableFilter(roles=[PARAMETER])(self.cg.variables)
 
         # apply some l2 regularization to the model parameters
-        self.reg_term = (4e-5 * sum([tensor.sum(p**2.0) for p in self.joint_params]))
+        self.reg_term = (1e-5 * sum([tensor.sum(p**2.0) for p in self.joint_params]))
         self.reg_term.name = "reg_term"
 
         # compute the full cost w.r.t. which we will optimize
-        self.joint_cost = self.nll_term + (0.9 * self.kld_q2p_term) + \
-                          (0.1 * self.kld_p2q_term) + self.reg_term
+        self.joint_cost = self.nll_term + (0.95 * self.kld_q2p_term) + \
+                          (0.05 * self.kld_p2q_term) + self.reg_term
         self.joint_cost.name = "joint_cost"
 
         # Get the gradient of the joint cost for all optimizable parameters
@@ -719,7 +752,8 @@ class IMoOLDrawModels(BaseRecurrent, Initializable, Random):
 
         # collect the outputs to return from this function
         outputs = [self.joint_cost, self.nll_bound, self.nll_term, \
-                   self.kld_q2p_term, self.kld_p2q_term, self.reg_term]
+                   self.kld_q2p_term, self.kld_p2q_term, self.reg_term, \
+                   self.kld_q2p_step]
 
         # compile the theano function
         print("Compiling model training/update function...")
