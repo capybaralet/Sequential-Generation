@@ -21,7 +21,7 @@ from blocks.roles import add_role, WEIGHT, BIAS, PARAMETER, AUXILIARY
 
 from BlocksAttention import ZoomableAttention2d, ZoomableAttention1d
 from DKCode import get_adam_updates
-from HelperFuncs import constFX, to_fX
+from HelperFuncs import constFX, to_fX, tanh_clip
 from LogPDFs import log_prob_bernoulli, gaussian_kld
 
 ###############################################################
@@ -47,7 +47,7 @@ class SimpleAttentionCore2d(Initializable):
         att_scale: initial portion of the image covered by the attention grid
     """
     def __init__(self, x_dim, con_dim, height, width, N, img_scale, att_scale,
-                 **kwargs):
+                 stay_within_boundary=False, **kwargs):
         super(SimpleAttentionCore2d, self).__init__(**kwargs)
         self.img_height = height
         self.img_width = width
@@ -58,6 +58,7 @@ class SimpleAttentionCore2d(Initializable):
         self.grid_dim = N*N
         self.img_scale = img_scale
         self.att_scale = att_scale
+        self.stay_within_boundary=stay_within_boundary,
         # add and initialize a parameter for controlling sigma scale
         init_ary = img_scale * att_scale * (1.5 / self.N) * numpy.ones((1,))
         self.sigma_scale = shared_floatx_nans((1,), name='sigma_scale')
@@ -111,6 +112,9 @@ class SimpleAttentionCore2d(Initializable):
         l = self.con_decoder.apply(h_con)
         # get base attention parameters
         center_y, center_x, delta, gamma1, gamma2 = self.zoomer.nn2att(l)
+        if self.stay_within_boundary:
+            center_y = tanh_clip(center_y, self.img_scale)
+            center_x = tanh_clip(center_x, self.img_scale)
         # get deltas and sigmas for our inner/outer attention regions
         delta1, delta2, sigma1, sigma2 = self._deltas_and_sigmas(delta)
         # perform local read from x1 at two different scales
@@ -128,6 +132,9 @@ class SimpleAttentionCore2d(Initializable):
         l = self.con_decoder.apply(h_con)
         # get base attention parameters
         center_y, center_x, delta, gamma1, gamma2 = self.zoomer.nn2att(l)
+        if self.stay_within_boundary:
+            center_y = tanh_clip(center_y, self.img_scale)
+            center_x = tanh_clip(center_x, self.img_scale)
         # get deltas and sigmas for our inner/outer attention regions
         delta1, delta2, sigma1, sigma2 = self._deltas_and_sigmas(delta)
         # assume windows are taken from a read operation by this object
@@ -154,6 +161,9 @@ class SimpleAttentionCore2d(Initializable):
         l = self.con_decoder.apply(h_con)
         # get base attention parameters
         center_y, center_x, delta, gamma1, gamma2 = self.zoomer.nn2att(l)
+        if self.stay_within_boundary:
+            center_y = tanh_clip(center_y, self.img_scale)
+            center_x = tanh_clip(center_x, self.img_scale)
         # get deltas and sigmas for our inner/outer attention regions
         delta1, delta2, sigma1, sigma2 = self._deltas_and_sigmas(delta)
         # make a dummy set of "read" responses -- use ones for all pixels
@@ -170,6 +180,9 @@ class SimpleAttentionCore2d(Initializable):
                  outputs=['r12'])
     def direct_read(self, x1, center_y, center_x, \
                     delta, gamma1, gamma2):
+        if self.stay_within_boundary:
+            center_y = tanh_clip(center_y, self.img_scale)
+            center_x = tanh_clip(center_x, self.img_scale)
         # get deltas and sigmas for our inner/outer attention regions
         delta1, delta2, sigma1, sigma2 = self._deltas_and_sigmas(delta)
         # perform local read from x1 at two different scales
@@ -183,6 +196,9 @@ class SimpleAttentionCore2d(Initializable):
     @application(inputs=['windows','center_y','center_x','delta'], \
                  outputs=['i12'])
     def direct_write(self, windows, center_y, center_x, delta):
+        if self.stay_within_boundary:
+            center_y = tanh_clip(center_y, self.img_scale)
+            center_x = tanh_clip(center_x, self.img_scale)
         # get deltas and sigmas for our inner/outer attention regions
         delta1, delta2, sigma1, sigma2 = self._deltas_and_sigmas(delta)
         # assume windows are taken from a read operation by this object
@@ -197,6 +213,9 @@ class SimpleAttentionCore2d(Initializable):
     @application(inputs=['center_y','center_x','delta', 'gamma1', 'gamma2'], \
                  outputs=['i12'])
     def direct_att_map(self, center_y, center_x, delta, gamma1, gamma2):
+        if self.stay_within_boundary:
+            center_y = tanh_clip(center_y, self.img_scale)
+            center_x = tanh_clip(center_x, self.img_scale)
         # get deltas and sigmas for this base delta
         delta1, delta2, sigma1, sigma2 = self._deltas_and_sigmas(delta)
         # make a dummy set of "read" responses -- use ones for all pixels
@@ -225,7 +244,7 @@ class SimpleAttentionReader2d(SimpleAttentionCore2d):
         att_scale: initial portion of the image covered by the attention grid
     """
     def __init__(self, x_dim, con_dim, height, width, N, img_scale, att_scale,
-                 **kwargs):
+                 stay_within_boundary=False, **kwargs):
         super(SimpleAttentionReader2d, self).__init__(
                 x_dim=x_dim,
                 con_dim=con_dim,
@@ -234,7 +253,9 @@ class SimpleAttentionReader2d(SimpleAttentionCore2d):
                 N=N,
                 img_scale=img_scale,
                 att_scale=att_scale,
-                name="reader2d", **kwargs
+                name="reader2d",
+                stay_within_boundary=stay_within_boundary,
+                **kwargs
         )
         return
 
@@ -263,7 +284,7 @@ class SimpleAttentionWriter2d(SimpleAttentionCore2d):
         att_scale: initial portion of the image covered by the attention grid
     """
     def __init__(self, x_dim, con_dim, height, width, N, img_scale, att_scale,
-                 **kwargs):
+                 stay_within_boundary=False, **kwargs):
         super(SimpleAttentionWriter2d, self).__init__(
                 x_dim=x_dim,
                 con_dim=con_dim,
@@ -272,7 +293,9 @@ class SimpleAttentionWriter2d(SimpleAttentionCore2d):
                 N=N,
                 img_scale=img_scale,
                 att_scale=att_scale,
-                name="writer2d", **kwargs
+                name="writer2d",
+                stay_within_boundary=stay_within_boundary,
+                **kwargs
         )
         return
 
@@ -1004,7 +1027,7 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
                     con_mlp_in, con_rnn, con_mlp_out,
                     gen_mlp_in, gen_rnn, gen_mlp_out,
                     var_mlp_in, var_rnn, var_mlp_out,
-                    test_value = None,
+                    test_value = None, noise_level = 0.,
                     **kwargs):
         super(SeqCondGen, self).__init__(**kwargs)
         if not ((step_type == 'add') or (step_type == 'jump')):
@@ -1019,6 +1042,7 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
         self.x_dim = x_dim
         self.y_dim = y_dim
         self.test_value = test_value
+        self.noise_level = noise_level
         # construct a sequence of scales for measuring NLL. we'll use scales
         # corresponding to some fixed number of guaranteed steps, followed by
         # a constant probability of early stopping. any "residual" probability
@@ -1285,6 +1309,11 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
             batch_size = x.shape[0]
             x = x.dimshuffle('x',0,1).repeat(self.total_steps, axis=0)
             y = y.dimshuffle('x',0,1).repeat(self.total_steps, axis=0)
+
+        # optionally add noise to inputs
+        if self.noise_level > 0.:
+            noise = self.theano_rng.uniform(x.shape) * self.theano_rng.binomial(x.shape, p=self.noise_level)
+            x = scale_to_unit_interval(x + noise)
 
         # get initial states for all model components
         c0 = self.c_0.repeat(batch_size, axis=0)
