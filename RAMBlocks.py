@@ -23,6 +23,7 @@ from BlocksAttention import ZoomableAttention2d, ZoomableAttention1d
 from DKCode import get_adam_updates
 from HelperFuncs import constFX, to_fX, tanh_clip
 from LogPDFs import log_prob_bernoulli, gaussian_kld
+from utils import scale_to_unit_interval
 
 ###############################################################
 ###############################################################
@@ -1313,7 +1314,7 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
         # optionally add noise to inputs
         if self.noise_level > 0.:
             noise = self.theano_rng.uniform(x.shape) * self.theano_rng.binomial(x.shape, p=self.noise_level)
-            x = scale_to_unit_interval(x + noise)
+            x = scale_to_unit_interval(x + noise).astype(theano.config.floatX)
 
         # get initial states for all model components
         c0 = self.c_0.repeat(batch_size, axis=0)
