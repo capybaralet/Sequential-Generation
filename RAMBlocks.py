@@ -107,10 +107,10 @@ class SimpleAttentionCore2d(Initializable):
     @application(inputs=['x1', 'x2', 'att_spec'], outputs=['r12'])
     def read(self, x1, x2, att_spec):
         # get base attention parameters
+        center_y, center_x, delta, gamma1, gamma2 = self.zoomer.nn2att(att_spec)
         if self.stay_within_boundary:
             center_y = tanh_clip(center_y, self.img_scale)
             center_x = tanh_clip(center_x, self.img_scale)
-        center_y, center_x, delta, gamma1, gamma2 = self.zoomer.nn2att(att_spec)
         # get deltas and sigmas for our inner/outer attention regions
         delta1, delta2, sigma1, sigma2 = self._deltas_and_sigmas(delta)
         # perform local read from x1 at two different scales
@@ -125,10 +125,10 @@ class SimpleAttentionCore2d(Initializable):
                  outputs=['i12'])
     def write(self, windows, att_spec):
         # get base attention parameters
+        center_y, center_x, delta, gamma1, gamma2 = self.zoomer.nn2att(att_spec)
         if self.stay_within_boundary:
             center_y = tanh_clip(center_y, self.img_scale)
             center_x = tanh_clip(center_x, self.img_scale)
-        center_y, center_x, delta, gamma1, gamma2 = self.zoomer.nn2att(att_spec)
         # get deltas and sigmas for our inner/outer attention regions
         delta1, delta2, sigma1, sigma2 = self._deltas_and_sigmas(delta)
         # assume windows are taken from a read operation by this object
@@ -152,10 +152,10 @@ class SimpleAttentionCore2d(Initializable):
             i12: conjoined heat maps for inner and outer foveated regions
         """
         # get base attention parameters
+        center_y, center_x, delta, gamma1, gamma2 = self.zoomer.nn2att(att_spec)
         if self.stay_within_boundary:
             center_y = tanh_clip(center_y, self.img_scale)
             center_x = tanh_clip(center_x, self.img_scale)
-        center_y, center_x, delta, gamma1, gamma2 = self.zoomer.nn2att(att_spec)
         # get deltas and sigmas for our inner/outer attention regions
         delta1, delta2, sigma1, sigma2 = self._deltas_and_sigmas(delta)
         # make a dummy set of "read" responses -- use ones for all pixels
@@ -238,6 +238,7 @@ class SimpleAttentionReader2d(SimpleAttentionCore2d):
                  stay_within_boundary=False, **kwargs):
         super(SimpleAttentionReader2d, self).__init__(
                 x_dim=x_dim,
+                con_dim=con_dim,
                 height=height,
                 width=width,
                 N=N,
@@ -276,6 +277,7 @@ class SimpleAttentionWriter2d(SimpleAttentionCore2d):
                  stay_within_boundary=False, **kwargs):
         super(SimpleAttentionWriter2d, self).__init__(
                 x_dim=x_dim,
+                con_dim=con_dim,
                 height=height,
                 width=width,
                 N=N,
