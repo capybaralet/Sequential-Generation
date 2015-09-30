@@ -36,13 +36,15 @@ from HelperFuncs import construct_masked_data, shift_and_scale_into_01, \
                         row_shuffle, to_fX, one_hot_np
 from MotionRenderers import TrajectoryGenerator, ObjectPainter
 
-RESULT_PATH = "RAM_TEST_RESULTS/"
+RESULT_PATH = "/data/lisatmp4/kruegerd/RAM_TEST_RESULTS/"
+import os
+filename = os.path.basename(__file__)[:-3]
 
 def test_seq_cond_gen_sequence(step_type='add'):
     ##############################
     # File tag, for output stuff #
     ##############################
-    result_tag = "{}VID_SCG".format(RESULT_PATH)
+    result_tag = "{}VID_SCG_{}".format(RESULT_PATH, filename)
 
     batch_size = 100
     traj_len = 10
@@ -281,7 +283,7 @@ def test_seq_cond_gen_sequence(step_type='add'):
     costs = [0. for i in range(10)]
     learn_rate = 0.0001
     momentum = 0.9
-    for i in range(250000):
+    for i in range(179500, 250000):
         scale = min(1.0, ((i+1) / 2000.0))
         if (((i + 1) % 10000) == 0):
             learn_rate = learn_rate * 0.95
