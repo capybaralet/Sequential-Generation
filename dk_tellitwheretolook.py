@@ -89,7 +89,8 @@ def test_seq_cond_gen_sequence(step_type='add'):
             batch_imgs[i,:,:] = img_set
         batch_imgs = np.swapaxes(batch_imgs, 0, 1)
         batch_imgs = to_fX( batch_imgs )
-        return batch_imgs
+        batch_inps = np.dstack((batch_imgs, traj_pos))
+        return batch_inps, batch_imgs
 
     ############################################################
     # Setup some parameters for the Iterative Refinement Model #
@@ -147,8 +148,9 @@ def test_seq_cond_gen_sequence(step_type='add'):
     }
 
     read_N = 2 # inner/outer grid dimension for reader
+    #x_dim, con_dim, height, width, N, img_scale, att_scale,
     reader_mlp = SimpleAttentionReader2d(x_dim=obs_dim, con_dim=rnn_dim,
-                                         width=im_dim, height=im_dim, N=read_N,
+                                         height=im_dim, width=im_dim, N=read_N,
                                          img_scale=1.0, att_scale=0.5,
                                          stay_within_boundary=True,
                                          **inits)
@@ -252,9 +254,9 @@ def test_seq_cond_gen_sequence(step_type='add'):
 
     # quick test of attention trajectory sampler
     samp_count = 32
-    Xb = generate_batch(samp_count)
-    result = SCG.sample_attention(Xb, Xb)
-    result[0] = Xb
+    Xb, Yb = generate_batch(samp_count)
+    result = SCG.sample_attention(Xb, Yb)
+    result[0] = Yb
     visualize_attention(result, pre_tag=result_tag, post_tag="b0")
 
     # build the main model functions (i.e. training and cost functions)
@@ -289,8 +291,8 @@ def test_seq_cond_gen_sequence(step_type='add'):
         SCG.set_sgd_params(lr=learn_rate, mom_1=momentum, mom_2=0.99)
         SCG.set_lam_kld(lam_kld_q2p=0.95, lam_kld_p2q=0.05, lam_kld_p2g=0.0)
         # perform a minibatch update and record the cost for this batch
-        Xb = generate_batch(batch_size)
-        result = SCG.train_joint(Xb, Xb)
+        Xb, Yb = generate_batch(batch_size)
+        result = SCG.train_joint(Xb, Yb)
         costs = [(costs[j] + result[j]) for j in range(len(result))]
 
         # output diagnostic information and checkpoint parameters, etc.
@@ -313,8 +315,8 @@ def test_seq_cond_gen_sequence(step_type='add'):
             SCG.save_model_params("{}_params.pkl".format(result_tag))
             # compute a small-sample estimate of NLL bound on validation set
             samp_count = 128
-            Xb = generate_batch(samp_count)
-            va_costs = SCG.compute_nll_bound(Xb, Xb)
+            Xb,Yb = generate_batch(samp_count)
+            va_costs = SCG.compute_nll_bound(Xb, Yb)
             str1 = "    va_nll_bound : {}".format(va_costs[1])
             str2 = "    va_nll_term  : {}".format(va_costs[2])
             str3 = "    va_kld_q2p   : {}".format(va_costs[3])
@@ -326,8 +328,8 @@ def test_seq_cond_gen_sequence(step_type='add'):
             # Sample and draw attention trajectories. #
             ###########################################
             samp_count = 32
-            Xb = generate_batch(samp_count)
-            result = SCG.sample_attention(Xb, Xb)
+            Xb,Yb = generate_batch(samp_count)
+            result = SCG.sample_attention(Xb, Yb)
             post_tag = "b{0:d}".format(i)
             visualize_attention(result, pre_tag=result_tag, post_tag=post_tag)
 

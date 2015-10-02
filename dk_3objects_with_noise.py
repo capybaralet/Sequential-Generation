@@ -36,7 +36,7 @@ from HelperFuncs import construct_masked_data, shift_and_scale_into_01, \
                         row_shuffle, to_fX, one_hot_np
 from MotionRenderers import TrajectoryGenerator, ObjectPainter
 
-RESULT_PATH = "RAM_TEST_RESULTS/"
+RESULT_PATH = "/data/lisatmp4/kruegerd/RAM_TEST_RESULTS/"
 import os
 filename = os.path.basename(__file__)[:-3]
 
@@ -57,29 +57,38 @@ def test_seq_cond_gen_sequence(step_type='add'):
     max_speed = 0.15
     TRAJ = TrajectoryGenerator(x_range=x_range, y_range=y_range, \
                                max_speed=max_speed)
-    # configure an object renderer
-    OPTR = ObjectPainter(im_dim, im_dim, obj_type='circle', obj_scale=0.2)
+
     # get a Theano function for doing the rendering
     _center_x = T.vector()
     _center_y = T.vector()
     _delta = T.vector()
     _sigma = T.vector()
-    _W = OPTR.write(_center_y, _center_x, _delta, _sigma)
-    write_func = theano.function(inputs=[_center_y, _center_x, _delta, _sigma], \
-                                 outputs=_W)
+    # configure object renderers
+    objects = ['circle', 'circle', 'cross']
+    write_funcs = []
+    for obj in objects:
+        OPTR = ObjectPainter(im_dim, im_dim, obj_type=obj, obj_scale=0.2)
+        _W = OPTR.write(_center_y, _center_x, _delta, _sigma)
+        write_func = theano.function(inputs=[_center_y, _center_x, _delta, _sigma], \
+                                     outputs=_W)
+        write_funcs.append(write_func)
 
-    # TODO: add trajectories to inputs
     def generate_batch(num_samples):
-        # generate a minibatch of trajectories
-        traj_pos, traj_vel = TRAJ.generate_trajectories(num_samples, traj_len)
-        traj_x = traj_pos[:,:,0]
-        traj_y = traj_pos[:,:,1]
-        # draw the trajectories
-        center_x = to_fX( traj_x.T.ravel() )
-        center_y = to_fX( traj_y.T.ravel() )
-        delta = to_fX( np.ones(center_x.shape) )
-        sigma = to_fX( np.ones(center_x.shape) )
-        W = write_func(center_y, center_x, delta, 0.05*sigma)
+        for n in range(len(objects)):
+            # generate a minibatch of trajectories
+            traj_pos, traj_vel = TRAJ.generate_trajectories(num_samples, traj_len)
+            traj_x = traj_pos[:,:,0]
+            traj_y = traj_pos[:,:,1]
+            # draw the trajectories
+            center_x = to_fX( traj_x.T.ravel() )
+            center_y = to_fX( traj_y.T.ravel() )
+            delta = to_fX( np.ones(center_x.shape) )
+            sigma = to_fX( np.ones(center_x.shape) )
+            if n == 0:
+                W  = write_funcs[n](center_y, center_x, delta, 0.05*sigma)
+            else:
+                W += write_funcs[n](center_y, center_x, delta, 0.05*sigma)
+        W = utils.scale_to_unit_interval(W)
         # shape trajectories into a batch for passing to the model
         batch_imgs = np.zeros((num_samples, traj_len, obs_dim))
         for i in range(num_samples):
@@ -150,7 +159,6 @@ def test_seq_cond_gen_sequence(step_type='add'):
     reader_mlp = SimpleAttentionReader2d(x_dim=obs_dim, con_dim=rnn_dim,
                                          width=im_dim, height=im_dim, N=read_N,
                                          img_scale=1.0, att_scale=0.5,
-                                         stay_within_boundary=True,
                                          **inits)
     read_dim = reader_mlp.read_dim # total number of "pixels" read by reader
 
@@ -242,7 +250,7 @@ def test_seq_cond_gen_sequence(step_type='add'):
                 var_mlp_in=var_mlp_in,
                 var_mlp_out=var_mlp_out,
                 var_rnn=var_rnn,
-                noise_level=.1)
+                noise_level=.2)
     SCG.initialize()
 
     compile_start_time = time.time()
@@ -263,8 +271,6 @@ def test_seq_cond_gen_sequence(step_type='add'):
     compile_end_time = time.time()
     compile_minutes = (compile_end_time - compile_start_time) / 60.0
     print("THEANO COMPILE TIME (MIN): {}".format(compile_minutes))
-
-    #import ipdb; ipdb.set_trace()
 
     #SCG.load_model_params(f_name="SCG_params.pkl")
 

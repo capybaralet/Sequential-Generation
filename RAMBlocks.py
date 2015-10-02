@@ -1428,11 +1428,27 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
         # collect the required inputs
         inputs = [x_sym, y_sym]
 
-        # compile the theano functions for computing stuff, like for real
-        print("Compiling model training/update function...")
-        self.train_joint = theano.function(inputs=inputs, \
-                                           outputs=outputs, \
-                                           updates=self.joint_updates)
+        if 1:
+            from guppy import hpy
+            hp = hpy()
+            before = hp.heap()
+            # compile the theano functions for computing stuff, like for real
+            print("Compiling model training/update function...")
+            self.train_joint = theano.function(inputs=inputs, \
+                                               outputs=outputs, \
+                                               updates=self.joint_updates)
+
+            after = hp.heap()
+            leftover = after - before
+            import ipdb
+            #theano.printing.debugprint(self.train_joint)
+            ipdb.set_trace()
+        else:
+            print("Compiling model training/update function...")
+            self.train_joint = theano.function(inputs=inputs, \
+                                               outputs=outputs, \
+                                               updates=self.joint_updates)
+
         print("Compiling NLL bound estimator function...")
         self.compute_nll_bound = theano.function(inputs=inputs, \
                                                  outputs=outputs)

@@ -40,7 +40,9 @@ RESULT_PATH = "RAM_TEST_RESULTS/"
 import os
 filename = os.path.basename(__file__)[:-3]
 
-def test_seq_cond_gen_sequence(step_type='add'):
+#def test_seq_cond_gen_sequence(step_type='add'):
+if 1:
+    step_type='add'
     ##############################
     # File tag, for output stuff #
     ##############################
@@ -147,8 +149,9 @@ def test_seq_cond_gen_sequence(step_type='add'):
     }
 
     read_N = 2 # inner/outer grid dimension for reader
+    #x_dim, con_dim, height, width, N, img_scale, att_scale,
     reader_mlp = SimpleAttentionReader2d(x_dim=obs_dim, con_dim=rnn_dim,
-                                         width=im_dim, height=im_dim, N=read_N,
+                                         height=im_dim, width=im_dim, N=read_N,
                                          img_scale=1.0, att_scale=0.5,
                                          stay_within_boundary=True,
                                          **inits)
@@ -333,5 +336,5 @@ def test_seq_cond_gen_sequence(step_type='add'):
 
 
 
-if __name__=="__main__":
-    test_seq_cond_gen_sequence(step_type='add')
+#if __name__=="__main__":
+#    test_seq_cond_gen_sequence(step_type='add')

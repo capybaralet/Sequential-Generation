@@ -68,7 +68,6 @@ def test_seq_cond_gen_sequence(step_type='add'):
     write_func = theano.function(inputs=[_center_y, _center_x, _delta, _sigma], \
                                  outputs=_W)
 
-    # TODO: add trajectories to inputs
     def generate_batch(num_samples):
         # generate a minibatch of trajectories
         traj_pos, traj_vel = TRAJ.generate_trajectories(num_samples, traj_len)
@@ -150,7 +149,6 @@ def test_seq_cond_gen_sequence(step_type='add'):
     reader_mlp = SimpleAttentionReader2d(x_dim=obs_dim, con_dim=rnn_dim,
                                          width=im_dim, height=im_dim, N=read_N,
                                          img_scale=1.0, att_scale=0.5,
-                                         stay_within_boundary=True,
                                          **inits)
     read_dim = reader_mlp.read_dim # total number of "pixels" read by reader
 
@@ -241,8 +239,7 @@ def test_seq_cond_gen_sequence(step_type='add'):
                 gen_rnn=gen_rnn,
                 var_mlp_in=var_mlp_in,
                 var_mlp_out=var_mlp_out,
-                var_rnn=var_rnn,
-                noise_level=.1)
+                var_rnn=var_rnn)
     SCG.initialize()
 
     compile_start_time = time.time()
@@ -263,8 +260,6 @@ def test_seq_cond_gen_sequence(step_type='add'):
     compile_end_time = time.time()
     compile_minutes = (compile_end_time - compile_start_time) / 60.0
     print("THEANO COMPILE TIME (MIN): {}".format(compile_minutes))
-
-    #import ipdb; ipdb.set_trace()
 
     #SCG.load_model_params(f_name="SCG_params.pkl")
 

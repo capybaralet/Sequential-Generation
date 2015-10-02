@@ -179,7 +179,7 @@ class ObjectPainter(object):
 ####################################################################
 
 class TrajectoryGenerator(object):
-    def __init__(self, x_range=[-1.,1.], y_range=[-1.,1.], max_speed=0.1):
+    def __init__(self, x_range=[-1.,1.], y_range=[-1.,1.], max_speed=0.1, velocity_adjustment='replace'):
         """
         A class for generating trajectories in box with given x/y range.
         """
@@ -188,6 +188,7 @@ class TrajectoryGenerator(object):
         self.x_min, self.x_max = x_range
         self.y_min, self.y_max = y_range
         self.max_speed = max_speed
+        self.velocity_adjustment = velocity_adjustment
         return
 
     def _rand_pos(self, num_samples, rand_vals=None):
@@ -270,7 +271,17 @@ class TrajectoryGenerator(object):
             rand_vel = self._rand_vel(num_samples, randn_vals[i])
             traj_pos[i,:,:] = step_pos
             traj_vel[i,:,:] = step_vel
-            traj_vel[i,vel_switches[i],:] = rand_vel[vel_switches[i],:]
+            if self.velocity_adjustment == 'replace':
+                traj_vel[i,vel_switches[i],:] = rand_vel[vel_switches[i],:]
+            elif self.velocity_adjustment == 'add':
+                samp_vel = traj_vel[i,vel_switches[i],:]
+                samp_vel += rand_vel[vel_switches[i],:]
+                vel_norms = np.sqrt(np.sum(samp_vel**2.0, axis=1, keepdims=True))
+                samp_vel = samp_vel * np.minimum(1.0, (self.max_speed / vel_norms))
+                traj_vel[i,vel_switches[i],:] = samp_vel
+            else:
+                print "self.velocity_adjustment invalid!", self.velocity_adjustment
+                assert False
             step_pos, step_vel = self._update_pos_and_vel(step_pos, step_vel)
         traj_pos = traj_pos.astype(theano.config.floatX)
         traj_vel = traj_vel.astype(theano.config.floatX)

@@ -68,7 +68,6 @@ def test_seq_cond_gen_sequence(step_type='add'):
     write_func = theano.function(inputs=[_center_y, _center_x, _delta, _sigma], \
                                  outputs=_W)
 
-    # TODO: add trajectories to inputs
     def generate_batch(num_samples):
         # generate a minibatch of trajectories
         traj_pos, traj_vel = TRAJ.generate_trajectories(num_samples, traj_len)
@@ -241,8 +240,8 @@ def test_seq_cond_gen_sequence(step_type='add'):
                 gen_rnn=gen_rnn,
                 var_mlp_in=var_mlp_in,
                 var_mlp_out=var_mlp_out,
-                var_rnn=var_rnn,
-                noise_level=.1)
+                var_rnn=var_rnn)
+                #noise_level=.1)
     SCG.initialize()
 
     compile_start_time = time.time()
@@ -263,8 +262,6 @@ def test_seq_cond_gen_sequence(step_type='add'):
     compile_end_time = time.time()
     compile_minutes = (compile_end_time - compile_start_time) / 60.0
     print("THEANO COMPILE TIME (MIN): {}".format(compile_minutes))
-
-    #import ipdb; ipdb.set_trace()
 
     #SCG.load_model_params(f_name="SCG_params.pkl")
 

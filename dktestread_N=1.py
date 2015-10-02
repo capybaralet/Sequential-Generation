@@ -68,7 +68,6 @@ def test_seq_cond_gen_sequence(step_type='add'):
     write_func = theano.function(inputs=[_center_y, _center_x, _delta, _sigma], \
                                  outputs=_W)
 
-    # TODO: add trajectories to inputs
     def generate_batch(num_samples):
         # generate a minibatch of trajectories
         traj_pos, traj_vel = TRAJ.generate_trajectories(num_samples, traj_len)
@@ -146,11 +145,10 @@ def test_seq_cond_gen_sequence(step_type='add'):
         'biases_init': Constant(0.),
     }
 
-    read_N = 2 # inner/outer grid dimension for reader
+    read_N = 1 # inner/outer grid dimension for reader
     reader_mlp = SimpleAttentionReader2d(x_dim=obs_dim, con_dim=rnn_dim,
                                          width=im_dim, height=im_dim, N=read_N,
                                          img_scale=1.0, att_scale=0.5,
-                                         stay_within_boundary=True,
                                          **inits)
     read_dim = reader_mlp.read_dim # total number of "pixels" read by reader
 
@@ -241,8 +239,7 @@ def test_seq_cond_gen_sequence(step_type='add'):
                 gen_rnn=gen_rnn,
                 var_mlp_in=var_mlp_in,
                 var_mlp_out=var_mlp_out,
-                var_rnn=var_rnn,
-                noise_level=.1)
+                var_rnn=var_rnn)
     SCG.initialize()
 
     compile_start_time = time.time()
@@ -264,8 +261,6 @@ def test_seq_cond_gen_sequence(step_type='add'):
     compile_minutes = (compile_end_time - compile_start_time) / 60.0
     print("THEANO COMPILE TIME (MIN): {}".format(compile_minutes))
 
-    #import ipdb; ipdb.set_trace()
-
     #SCG.load_model_params(f_name="SCG_params.pkl")
 
     ################################################################
@@ -275,7 +270,7 @@ def test_seq_cond_gen_sequence(step_type='add'):
     out_file = open("{}_results.txt".format(result_tag), 'wb')
     out_file.flush()
     costs = [0. for i in range(10)]
-    learn_rate = 0.0001
+    learn_rate = 0.000000001
     momentum = 0.9
     for i in range(250000):
         scale = min(1.0, ((i+1) / 2000.0))

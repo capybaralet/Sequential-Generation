@@ -40,7 +40,9 @@ RESULT_PATH = "RAM_TEST_RESULTS/"
 import os
 filename = os.path.basename(__file__)[:-3]
 
-def test_seq_cond_gen_sequence(step_type='add'):
+#def test_seq_cond_gen_sequence(step_type='add'):
+if 1:
+    step_type='add'
     ##############################
     # File tag, for output stuff #
     ##############################
@@ -147,15 +149,22 @@ def test_seq_cond_gen_sequence(step_type='add'):
     }
 
     read_N = 2 # inner/outer grid dimension for reader
+    #x_dim, con_dim, height, width, N, img_scale, att_scale,
     reader_mlp = SimpleAttentionReader2d(x_dim=obs_dim, con_dim=rnn_dim,
-                                         width=im_dim, height=im_dim, N=read_N,
+                                         height=im_dim, width=im_dim, N=read_N,
                                          img_scale=1.0, att_scale=0.5,
                                          stay_within_boundary=True,
                                          **inits)
     read_dim = reader_mlp.read_dim # total number of "pixels" read by reader
 
-    writer_mlp = MLP([None, None], [rnn_dim, write_dim, obs_dim], \
-                     name="writer_mlp", **inits)
+    #writer_mlp = MLP([None, None], [rnn_dim, write_dim, obs_dim], \
+    #                 name="writer_mlp", **inits)
+    write_N = 6
+    writer_mlp = SimpleAttentionWriter2d(x_dim=rnn_dim, con_dim=rnn_dim,
+                                         height=im_dim, width=im_dim, N=write_N,
+                                         img_scale=1.0, att_scale=0.5,
+                                         stay_within_boundary=True,
+                                         **inits)
 
     # mlps for processing inputs to LSTMs
     con_mlp_in = MLP([Identity()], [                       z_dim, 4*rnn_dim], \
@@ -333,5 +342,5 @@ def test_seq_cond_gen_sequence(step_type='add'):
 
 
 
-if __name__=="__main__":
-    test_seq_cond_gen_sequence(step_type='add')
+#if __name__=="__main__":
+#    test_seq_cond_gen_sequence(step_type='add')
