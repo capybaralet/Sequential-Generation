@@ -1020,6 +1020,11 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
         var_mlp_in: preprocesses input to the "variational" LSTM
         var_rnn: the "variational" LSTM
         var_mlp_out: CondNet for distribution over z given gen_rnn
+        x_test_value: x.tag_test_value for debugging
+        y_test_value: y.tag_test_value for debugging
+        noise_level: add uniform[0,1] noise to each pixel with this probability
+                     for denoising (resulting input is clipped to [0,1])
+        nextra_inputs: inputs that
     """
     def __init__(self, x_and_y_are_seqs, total_steps, init_steps,
                     exit_rate, nll_weight,
@@ -1028,7 +1033,8 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
                     con_mlp_in, con_rnn, con_mlp_out,
                     gen_mlp_in, gen_rnn, gen_mlp_out,
                     var_mlp_in, var_rnn, var_mlp_out,
-                    test_value = None, noise_level = 0.,
+                    x_test_value = None, y_test_value = None, 
+                    noise_level = 0., nextra_inputs = 0,
                     **kwargs):
         super(SeqCondGen, self).__init__(**kwargs)
         if not ((step_type == 'add') or (step_type == 'jump')):
@@ -1042,8 +1048,10 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
         self.step_type = step_type
         self.x_dim = x_dim
         self.y_dim = y_dim
-        self.test_value = test_value
+        self.x_test_value = x_test_value
+        self.y_test_value = y_test_value
         self.noise_level = noise_level
+        self.nextra_inputs = nextra_inputs
         # construct a sequence of scales for measuring NLL. we'll use scales
         # corresponding to some fixed number of guaranteed steps, followed by
         # a constant probability of early stopping. any "residual" probability
@@ -1222,6 +1230,11 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
                states=['c', 'h_con', 'c_con', 'h_gen', 'c_gen', 'h_var', 'c_var'],
                outputs=['c', 'h_con', 'c_con', 'h_gen', 'c_gen', 'h_var', 'c_var', 'nll', 'kl_q2p', 'kl_p2q', 'kl_p2g', 'att_map', 'read_img'])
     def iterate(self, x, y, u, u_hc, nll_scale, c, h_con, c_con, h_gen, c_gen, h_var, c_var):
+        if self.nextra_inputs:
+            # location information is provided in x
+            locations = x[:,-self.nextra_inputs:]
+            x = x[:, :-self.nextra_inputs]
+
         if self.step_type == 'add':
             # additive steps use c as a "direct workspace", which means it's
             # already directly comparable to y.
@@ -1285,6 +1298,7 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
                             q_z_mean, q_z_logvar), axis=1)
         kl_p2g = tensor.sum(gaussian_kld(p_z_mean, p_z_logvar, \
                             g_z_mean, g_z_logvar), axis=1)
+
         return c, h_con, c_con, h_gen, c_gen, h_var, c_var, nll, kl_q2p, kl_p2q, kl_p2g, att_map, read_img
 
     #------------------------------------------------------------------------
@@ -1368,9 +1382,10 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
             x_sym = tensor.matrix('x_sym')
             y_sym = tensor.matrix('y_sym')
 
-        if self.test_value is not None:
-            x_sym.tag.test_value = self.test_value
-            y_sym.tag.test_value = self.test_value
+        if self.x_test_value is not None:
+            x_sym.tag.test_value = self.x_test_value
+        if self.y_test_value is not None:
+            y_sym.tag.test_value = self.y_test_value
 
         # collect estimates of y given x produced by this model
         cs, h_cons, nlls, kl_q2ps, kl_p2qs, kl_p2gs, att_maps, read_imgs = \
@@ -1469,9 +1484,10 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
         else:
             x_sym = tensor.matrix('x_sym_att_funcs')
             y_sym = tensor.matrix('y_sym_att_funcs')
-        if self.test_value is not None:
-            x_sym.tag.test_value = self.test_value
-            y_sym.tag.test_value = self.test_value
+        if self.x_test_value is not None:
+            x_sym.tag.test_value = self.x_test_value
+        if self.y_test_value is not None:
+            y_sym.tag.test_value = self.y_test_value
         # collect estimates of y given x produced by this model
         cs, h_cons, nlls, kl_q2ps, kl_p2qs, kl_p2gs, att_maps, read_imgs = \
                 self.process_inputs(x_sym, y_sym)

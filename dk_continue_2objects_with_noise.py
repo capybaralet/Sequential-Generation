@@ -36,11 +36,10 @@ from HelperFuncs import construct_masked_data, shift_and_scale_into_01, \
                         row_shuffle, to_fX, one_hot_np
 from MotionRenderers import TrajectoryGenerator, ObjectPainter
 
-RESULT_PATH = "RAM_TEST_RESULTS/"
+RESULT_PATH = "/data/lisatmp4/kruegerd/RAM_TEST_RESULTS/"
 import os
 filename = os.path.basename(__file__)[:-3]
 
-#def test_seq_cond_gen_sequence(step_type='add'):
 if 1:
     step_type='add'
     ##############################
@@ -49,7 +48,7 @@ if 1:
     result_tag = "{}VID_SCG_{}".format(RESULT_PATH, filename)
 
     batch_size = 100
-    traj_len = 10
+    traj_len = 30
     im_dim = 32
     obs_dim = im_dim*im_dim
 
@@ -59,29 +58,38 @@ if 1:
     max_speed = 0.15
     TRAJ = TrajectoryGenerator(x_range=x_range, y_range=y_range, \
                                max_speed=max_speed)
-    # configure an object renderer
-    OPTR = ObjectPainter(im_dim, im_dim, obj_type='circle', obj_scale=0.2)
+
     # get a Theano function for doing the rendering
     _center_x = T.vector()
     _center_y = T.vector()
     _delta = T.vector()
     _sigma = T.vector()
-    _W = OPTR.write(_center_y, _center_x, _delta, _sigma)
-    write_func = theano.function(inputs=[_center_y, _center_x, _delta, _sigma], \
-                                 outputs=_W)
+    # configure object renderers
+    objects = ['circle', 'cross']
+    write_funcs = []
+    for obj in objects:
+        OPTR = ObjectPainter(im_dim, im_dim, obj_type=obj, obj_scale=0.2)
+        _W = OPTR.write(_center_y, _center_x, _delta, _sigma)
+        write_func = theano.function(inputs=[_center_y, _center_x, _delta, _sigma], \
+                                     outputs=_W)
+        write_funcs.append(write_func)
 
-    # TODO: add trajectories to inputs
     def generate_batch(num_samples):
-        # generate a minibatch of trajectories
-        traj_pos, traj_vel = TRAJ.generate_trajectories(num_samples, traj_len)
-        traj_x = traj_pos[:,:,0]
-        traj_y = traj_pos[:,:,1]
-        # draw the trajectories
-        center_x = to_fX( traj_x.T.ravel() )
-        center_y = to_fX( traj_y.T.ravel() )
-        delta = to_fX( np.ones(center_x.shape) )
-        sigma = to_fX( np.ones(center_x.shape) )
-        W = write_func(center_y, center_x, delta, 0.05*sigma)
+        for n in range(len(objects)):
+            # generate a minibatch of trajectories
+            traj_pos, traj_vel = TRAJ.generate_trajectories(num_samples, traj_len)
+            traj_x = traj_pos[:,:,0]
+            traj_y = traj_pos[:,:,1]
+            # draw the trajectories
+            center_x = to_fX( traj_x.T.ravel() )
+            center_y = to_fX( traj_y.T.ravel() )
+            delta = to_fX( np.ones(center_x.shape) )
+            sigma = to_fX( np.ones(center_x.shape) )
+            if n == 0:
+                W  = write_funcs[n](center_y, center_x, delta, 0.05*sigma)
+            else:
+                W += write_funcs[n](center_y, center_x, delta, 0.05*sigma)
+        W = utils.scale_to_unit_interval(W)
         # shape trajectories into a batch for passing to the model
         batch_imgs = np.zeros((num_samples, traj_len, obs_dim))
         for i in range(num_samples):
@@ -97,7 +105,7 @@ if 1:
     # Setup some parameters for the Iterative Refinement Model #
     ############################################################
     total_steps = traj_len
-    init_steps = 3
+    init_steps = 5
     exit_rate = 0.0
     nll_weight = 0.1
     x_dim = obs_dim
@@ -149,22 +157,14 @@ if 1:
     }
 
     read_N = 2 # inner/outer grid dimension for reader
-    #x_dim, con_dim, height, width, N, img_scale, att_scale,
     reader_mlp = SimpleAttentionReader2d(x_dim=obs_dim, con_dim=rnn_dim,
-                                         height=im_dim, width=im_dim, N=read_N,
+                                         width=im_dim, height=im_dim, N=read_N,
                                          img_scale=1.0, att_scale=0.5,
-                                         stay_within_boundary=True,
                                          **inits)
     read_dim = reader_mlp.read_dim # total number of "pixels" read by reader
 
-    #writer_mlp = MLP([None, None], [rnn_dim, write_dim, obs_dim], \
-    #                 name="writer_mlp", **inits)
-    write_N = 6
-    writer_mlp = SimpleAttentionWriter2d(x_dim=rnn_dim, con_dim=rnn_dim,
-                                         height=im_dim, width=im_dim, N=write_N,
-                                         img_scale=1.0, att_scale=0.5,
-                                         stay_within_boundary=True,
-                                         **inits)
+    writer_mlp = MLP([None, None], [rnn_dim, write_dim, obs_dim], \
+                     name="writer_mlp", **inits)
 
     # mlps for processing inputs to LSTMs
     con_mlp_in = MLP([Identity()], [                       z_dim, 4*rnn_dim], \
@@ -251,7 +251,7 @@ if 1:
                 var_mlp_in=var_mlp_in,
                 var_mlp_out=var_mlp_out,
                 var_rnn=var_rnn,
-                noise_level=.1)
+                noise_level=.3)
     SCG.initialize()
 
     compile_start_time = time.time()
@@ -273,9 +273,7 @@ if 1:
     compile_minutes = (compile_end_time - compile_start_time) / 60.0
     print("THEANO COMPILE TIME (MIN): {}".format(compile_minutes))
 
-    #import ipdb; ipdb.set_trace()
-
-    #SCG.load_model_params(f_name="SCG_params.pkl")
+    SCG.load_model_params(f_name="/data/lisatmp4/kruegerd/RAM_TEST_RESULTS/VID_SCG_dk_2objects_with_noise_params.")
 
     ################################################################
     # Apply some updates, to check that they aren't totally broken #
@@ -284,9 +282,9 @@ if 1:
     out_file = open("{}_results.txt".format(result_tag), 'wb')
     out_file.flush()
     costs = [0. for i in range(10)]
-    learn_rate = 0.0001
+    learn_rate = 0.0001 * .95**10
     momentum = 0.9
-    for i in range(250000):
+    for i in range(112000, 250000):
         scale = min(1.0, ((i+1) / 2000.0))
         if (((i + 1) % 10000) == 0):
             learn_rate = learn_rate * 0.95
@@ -303,7 +301,7 @@ if 1:
         costs = [(costs[j] + result[j]) for j in range(len(result))]
 
         # output diagnostic information and checkpoint parameters, etc.
-        if ((i % 100) == 0):
+        if ((i % 200) == 0):
             costs = [(v / 100.0) for v in costs]
             str1 = "-- batch {0:d} --".format(i)
             str2 = "    total_cost: {0:.4f}".format(costs[0])
@@ -318,7 +316,7 @@ if 1:
             out_file.write(joint_str+"\n")
             out_file.flush()
             costs = [0.0 for v in costs]
-        if ((i % 200) == 0):
+        if ((i % 2000) == 0):
             SCG.save_model_params("{}_params.pkl".format(result_tag))
             # compute a small-sample estimate of NLL bound on validation set
             samp_count = 128
@@ -341,6 +339,3 @@ if 1:
             visualize_attention(result, pre_tag=result_tag, post_tag=post_tag)
 
 
-
-#if __name__=="__main__":
-#    test_seq_cond_gen_sequence(step_type='add')

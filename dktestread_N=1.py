@@ -36,7 +36,7 @@ from HelperFuncs import construct_masked_data, shift_and_scale_into_01, \
                         row_shuffle, to_fX, one_hot_np
 from MotionRenderers import TrajectoryGenerator, ObjectPainter
 
-RESULT_PATH = "RAM_TEST_RESULTS/"
+RESULT_PATH = "/data/lisatmp4/kruegerd/RAM_TEST_RESULTS/"
 import os
 filename = os.path.basename(__file__)[:-3]
 

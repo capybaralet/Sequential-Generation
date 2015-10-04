@@ -36,11 +36,18 @@ from HelperFuncs import construct_masked_data, shift_and_scale_into_01, \
                         row_shuffle, to_fX, one_hot_np
 from MotionRenderers import TrajectoryGenerator, ObjectPainter
 
-RESULT_PATH = "RAM_TEST_RESULTS/"
+"""
+We give the controller the actual location(s) of the object(s) as another input
+which it can learn to interpret in order to guide the attention parameters that
+it feads to the attention-reader.
+"""
+
+RESULT_PATH = "/data/lisatmp4/kruegerd/RAM_TEST_RESULTS/"
 import os
 filename = os.path.basename(__file__)[:-3]
 
-def test_seq_cond_gen_sequence(step_type='add'):
+if 1:
+    step_type='add'
     ##############################
     # File tag, for output stuff #
     ##############################
@@ -148,7 +155,6 @@ def test_seq_cond_gen_sequence(step_type='add'):
     }
 
     read_N = 2 # inner/outer grid dimension for reader
-    #x_dim, con_dim, height, width, N, img_scale, att_scale,
     reader_mlp = SimpleAttentionReader2d(x_dim=obs_dim, con_dim=rnn_dim,
                                          height=im_dim, width=im_dim, N=read_N,
                                          img_scale=1.0, att_scale=0.5,
@@ -334,6 +340,3 @@ def test_seq_cond_gen_sequence(step_type='add'):
             visualize_attention(result, pre_tag=result_tag, post_tag=post_tag)
 
 
-
-if __name__=="__main__":
-    test_seq_cond_gen_sequence(step_type='add')

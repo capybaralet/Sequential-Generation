@@ -40,7 +40,8 @@ RESULT_PATH = "/data/lisatmp4/kruegerd/RAM_TEST_RESULTS/"
 import os
 filename = os.path.basename(__file__)[:-3]
 
-def test_seq_cond_gen_sequence(step_type='add'):
+if 1:
+    step_type='add'
     ##############################
     # File tag, for output stuff #
     ##############################
@@ -339,5 +340,3 @@ def test_seq_cond_gen_sequence(step_type='add'):
 
 
 
-if __name__=="__main__":
-    test_seq_cond_gen_sequence(step_type='add')

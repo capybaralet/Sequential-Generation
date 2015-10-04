@@ -1033,7 +1033,8 @@ def test_seq_cond_gen_bouncing_balls(step_type='add'):
                 var_mlp_in=var_mlp_in,
                 var_mlp_out=var_mlp_out,
                 var_rnn=var_rnn,
-                test_value = Xtr[:batch_size])
+                x_test_value = Xtr[:batch_size],
+                y_test_value = Xtr[:batch_size])
     SCG.initialize()
 
     compile_start_time = time.time()
