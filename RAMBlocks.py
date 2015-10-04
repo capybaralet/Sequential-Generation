@@ -1443,7 +1443,7 @@ class SeqCondGen(BaseRecurrent, Initializable, Random):
         # collect the required inputs
         inputs = [x_sym, y_sym]
 
-        if 1:
+        if 0:
             from guppy import hpy
             hp = hpy()
             before = hp.heap()
