@@ -107,7 +107,7 @@ if 1:
     total_steps = traj_len
     init_steps = 5
     exit_rate = 0.0
-    nll_weight = 0.1
+    nll_weight = 0.5
     x_dim = obs_dim
     y_dim = obs_dim
     z_dim = 100
@@ -273,7 +273,7 @@ if 1:
     compile_minutes = (compile_end_time - compile_start_time) / 60.0
     print("THEANO COMPILE TIME (MIN): {}".format(compile_minutes))
 
-    SCG.load_model_params(f_name="/data/lisatmp4/kruegerd/RAM_TEST_RESULTS/VID_SCG_dk_continue_2objects_with_noise_params.pkl")
+    SCG.load_model_params(f_name="/data/lisatmp4/kruegerd/RAM_TEST_RESULTS/VID_SCG_dk_continue_2objects_with_noise_lr=0_0001_nll=0_5_params.pkl")
 
     ################################################################
     # Apply some updates, to check that they aren't totally broken #
@@ -282,12 +282,12 @@ if 1:
     out_file = open("{}_results.txt".format(result_tag), 'wb')
     out_file.flush()
     costs = [0. for i in range(10)]
-    learn_rate = 0.0001 * .95**20
+    learn_rate = 0.0001# * .95**10
     momentum = 0.9
-    for i in range(212000, 2500000):
+    for i in range(250000, 2500000):
         scale = min(1.0, ((i+1) / 2000.0))
-        if (((i + 1) % 10000) == 0):
-            learn_rate = learn_rate * 0.95
+        #if (((i + 1) % 10000) == 0):
+        #    learn_rate = learn_rate * 0.95
         if (i > 5000):
             momentum = 0.95
         else:
