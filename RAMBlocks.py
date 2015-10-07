@@ -238,7 +238,6 @@ class FovAttentionReader2d(FovAttentionCore2d):
                  **kwargs):
         super(FovAttentionReader2d, self).__init__(
                 x_dim=x_dim,
-                con_dim=con_dim,
                 height=height,
                 width=width,
                 N=N,
@@ -277,7 +276,6 @@ class FovAttentionWriter2d(FovAttentionCore2d):
                  **kwargs):
         super(FovAttentionWriter2d, self).__init__(
                 x_dim=x_dim,
-                con_dim=con_dim,
                 height=height,
                 width=width,
                 N=N,

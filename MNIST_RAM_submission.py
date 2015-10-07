@@ -39,8 +39,11 @@ from MotionRenderers import TrajectoryGenerator, ObjectPainter
 
 RESULT_PATH = "/data/lisatmp4/kruegerd/RAM_RESULTS/"
 
-def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
-                               res_tag="AAA"):
+
+if 1:
+    step_type='add'
+    res_tag="AAA"
+
     ##############################
     # File tag, for output stuff #
     ##############################
@@ -239,7 +242,8 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
 
     # quick test of attention trajectory sampler
     samp_count = 32
-    Xb, Yb, Cb = generate_batch_multi(samp_count, xobjs=x_objs, yobjs=y_objs, img_scale=img_scale)
+    Xb = Xte[:samp_count]
+    Yb = Xb
     result = SCG.sample_attention(Xb, Yb)
     result[0] = Xb
     visualize_attention(result, pre_tag=result_tag, post_tag="b0")
@@ -264,20 +268,32 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
     out_file.flush()
     costs = [0. for i in range(10)]
     learn_rate = 0.0001
-    momentum = 0.95
+    momentum = 0.9
+    batch_idx = np.arange(batch_size) + tr_samples
     for i in range(250000):
         lr_scale = min(1.0, ((i+1) / 5000.0))
         mom_scale = min(1.0, ((i+1) / 10000.0))
         lam_kld_amu = 0.0 * (1.0 - min(1.0, ((i+1) / 25000.0)))
         if (((i + 1) % 10000) == 0):
             learn_rate = learn_rate * 0.95
+
+        # get the indices of training samples for this batch update
+        batch_idx += batch_size
+        if (np.max(batch_idx) >= tr_samples):
+            # we finished an "epoch", so we rejumble the training set
+            Xtr = row_shuffle(Xtr)
+            batch_idx = np.arange(batch_size)
+
         # set sgd and objective function hyperparams for this update
         SCG.set_sgd_params(lr=lr_scale*learn_rate, mom_1=mom_scale*momentum, mom_2=0.99)
         SCG.set_lam_kld(lam_kld_q2p=0.95, lam_kld_p2q=0.05, \
                         lam_kld_amu=lam_kld_amu, lam_kld_alv=0.1)
         # perform a minibatch update and record the cost for this batch
-        Xb, Yb, Cb = generate_batch_multi(samp_count, xobjs=x_objs, yobjs=y_objs, img_scale=img_scale)
-        result = SCG.train_joint(Xb, Yb)
+
+        Xb = Xtr.take(batch_idx, axis=0)
+        Xb = batch_reshape(Xb, reps=step_reps)
+        result = SCG.train_joint(Xb, Xb)
+
         costs = [(costs[j] + result[j]) for j in range(len(result))]
         # output diagnostic information and checkpoint parameters, etc.
         if ((i % 250) == 0):
@@ -297,11 +313,27 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
             costs = [0.0 for v in costs]
         if ((i % 500) == 0):
             SCG.save_model_params("{}_params.pkl".format(result_tag))
+            # compute a small-sample estimate of NLL bound on validation set
+            Xva = row_shuffle(Xva)
+            Xb = Xva[:500]
+            Xb = batch_reshape(Xb, reps=step_reps)
+            va_costs = SCG.compute_nll_bound(Xb, Xb)
+            str2 = "    total_cost: {}".format(va_costs[0])
+            str3 = "    nll_term  : {}".format(va_costs[1])
+            str4 = "    kld_q2p   : {}".format(va_costs[2])
+            str5 = "    kld_p2q   : {}".format(va_costs[3])
+            str6 = "    kld_amu   : {}".format(va_costs[4])
+            str7 = "    kld_alv   : {}".format(va_costs[5])
+            str8 = "    reg_term  : {}".format(va_costs[6])
+            joint_str = "\n".join([str2, str3, str4, str5, str6, str7, str8])
+            print(joint_str)
+            out_file.write(joint_str+"\n")
+            out_file.flush()
+            costs = [0.0 for v in costs]
             ###########################################
             # Sample and draw attention trajectories. #
             ###########################################
             samp_count = 32
-            Xb, Yb, Cb = generate_batch_multi(samp_count, xobjs=x_objs, yobjs=y_objs, img_scale=img_scale)
-            result = SCG.sample_attention(Xb, Yb)
+            result = SCG.sample_attention(Xb, Xb)
             post_tag = "b{0:d}".format(i)
             visualize_attention(result, pre_tag=result_tag, post_tag=post_tag)
