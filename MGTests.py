@@ -46,8 +46,8 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
     ##############################
     result_tag = "{}VID_SCGX_{}".format(RESULT_PATH, res_tag)
 
-    batch_size = 192
-    traj_len = 25
+    batch_size = 128
+    traj_len = 15
     im_dim = 32
     obs_dim = im_dim*im_dim
 
@@ -144,12 +144,13 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
     total_steps = traj_len
     init_steps = 5
     exit_rate = 0.0
-    nll_weight = 0.3
+    nll_weight = 0.25
     x_dim = obs_dim
     y_dim = obs_dim
     z_dim = 128
     att_spec_dim = 5
     rnn_dim = 512
+    write_dim = 512
     mlp_dim = 512
 
     def visualize_attention(result, pre_tag="AAA", post_tag="AAA"):
@@ -227,10 +228,10 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
                      name="gen_mlp_in", **inits)
 
     # mlps for turning LSTM outputs into conditionals over z_gen
-    con_mlp_out = CondNet([], [rnn_dim, att_spec_dim], \
+    con_mlp_out = CondNet([Rectifier()], [rnn_dim, mlp_dim, att_spec_dim], \
                           name="con_mlp_out", **inits)
-    gen_mlp_out = CondNet([], [rnn_dim, z_dim], name="gen_mlp_out", **inits)
-    var_mlp_out = CondNet([], [rnn_dim, z_dim], name="var_mlp_out", **inits)
+    gen_mlp_out = CondNet([Rectifier()], [rnn_dim, mlp_dim, z_dim], name="gen_mlp_out", **inits)
+    var_mlp_out = CondNet([Rectifier()], [rnn_dim, mlp_dim, z_dim], name="var_mlp_out", **inits)
 
     # LSTMs for the actual LSTMs (obviously, perhaps)
     con_rnn = BiasedLSTM(dim=rnn_dim, ig_bias=2.0, fg_bias=2.0, \
@@ -340,7 +341,7 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
     for i in range(250000):
         lr_scale = min(1.0, ((i+1) / 5000.0))
         mom_scale = min(1.0, ((i+1) / 10000.0))
-        lam_kld_amu = 0.0 * (1.0 - min(1.0, ((i+1) / 25000.0)))
+        lam_kld_amu = 0.1 * (1.0 - min(1.0, ((i+1) / 20000.0)))
         if (((i + 1) % 10000) == 0):
             learn_rate = learn_rate * 0.95
         # set sgd and objective function hyperparams for this update
@@ -381,6 +382,9 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
 
 
 if __name__=="__main__":
+    INSTRUCTIONS = """
+    # Run once with one of these lines uncommented and once with the other
+    # uncommented. That's all!
+    """
     test_seq_cond_gen_sequence(step_type='add', x_objs=['cross', 'circle', 'circle'], y_objs=[0], res_tag="T1")
     #test_seq_cond_gen_sequence(step_type='add', x_objs=['cross', 'circle'], y_objs=[0,1], res_tag="T2")
-    #test_seq_cond_gen_sequence(step_type='add', x_objs=['cross', 'cross', 'circle'], y_objs=[0,1], res_tag="T3")

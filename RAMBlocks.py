@@ -13,7 +13,7 @@ from blocks.filter import VariableFilter
 from blocks.bricks.base import application, _Brick, Brick, lazy
 from blocks.bricks.recurrent import BaseRecurrent, recurrent
 from blocks.initialization import Constant, IsotropicGaussian, Orthogonal
-from blocks.bricks import Random, MLP, Linear, Tanh, Softmax, Sigmoid, Initializable
+from blocks.bricks import Random, MLP, Linear, Tanh, Softmax, Initializable
 from blocks.bricks import Tanh, Identity, Activation, Feedforward
 from blocks.bricks.cost import BinaryCrossEntropy
 from blocks.utils import shared_floatx_nans
@@ -332,7 +332,8 @@ class GridAttentionCore2d(Initializable):
         self.sigma_scale = shared_floatx_nans((1,), name='sigma_scale')
         self.sigma_scale.set_value(init_ary.astype(theano.config.floatX))
         add_role(self.sigma_scale, PARAMETER)
-        self.att_spec_dim = 5   # dimension of an attention specification
+
+        self.att_spec_dim = 5  # dimension of an attention specification
 
         # get a localized reader mechanism and a controller decoder
         self.zoomer = ZoomableAttention2d(height, width, N, img_scale, att_scale)
