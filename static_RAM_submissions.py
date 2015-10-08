@@ -37,6 +37,10 @@ from HelperFuncs import construct_masked_data, shift_and_scale_into_01, \
                         row_shuffle, to_fX, one_hot_np
 from MotionRenderers import TrajectoryGenerator, ObjectPainter
 
+"""
+Takes two command line arguments: dataset and exit_rate
+"""
+
 
 if 1:
     RESULT_PATH = "/data/lisatmp4/kruegerd/RAM_RESULTS/"
