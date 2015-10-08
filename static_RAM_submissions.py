@@ -38,7 +38,17 @@ from HelperFuncs import construct_masked_data, shift_and_scale_into_01, \
 from MotionRenderers import TrajectoryGenerator, ObjectPainter
 
 """
-Takes two command line arguments: dataset and exit_rate
+Takes the following command line arguments: 
+    dataset
+        MNIST or TFD
+    exit_rate
+        float
+    total_steps
+        int 
+    init_steps
+        int
+    attention_reader
+        Fov or Grid
 """
 
 
@@ -49,7 +59,19 @@ if 1:
     import sys
     dataset = sys.argv[1]
     exit_rate = float(sys.argv[2])
-    res_tag="AAA_" + filename + '_' + dataset + '_exit_rate=' + str(exit_rate) + '_'
+    total_steps = int(sys.argv[3])
+    init_steps = int(sys.argv[4])
+    attention_reader = sys.argv[5]
+    res_tag="AAA_" + filename + '_' + dataset +\
+                   '_exit_rate=' + str(exit_rate) +\
+                   '_total_steps=' + str(total_steps) +\
+                   '_init_steps=' + str(init_steps) +\
+                   '_attention_reader=' + attention_reader +\
+                   '_'
+
+    assert dataset in ['MNIST', 'TFD']
+    assert attention_reader in ['Fov', 'Grid']
+
     step_type='add'
 
     ##############################
@@ -94,8 +116,6 @@ if 1:
     # Setup some parameters for the Iterative Refinement Model #
     ############################################################
     batch_size = 192
-    total_steps = 15
-    init_steps = 3
     nll_weight = 0.3
     x_dim = obs_dim
     y_dim = obs_dim
@@ -157,10 +177,17 @@ if 1:
     # module for doing local 2d read defined by an attention specification
     img_scale = 1.0 # image coords will range over [-img_scale...img_scale]
     read_N = 2      # use NxN grid for reader
-    reader_mlp = FovAttentionReader2d(x_dim=obs_dim,
-                                      width=im_dim, height=im_dim, N=read_N,
-                                      img_scale=img_scale, att_scale=0.5,
-                                      **inits)
+    if attention_reader == 'Fov':
+        reader_mlp = FovAttentionReader2d(x_dim=obs_dim,
+                                          width=im_dim, height=im_dim, N=read_N,
+                                          img_scale=img_scale, att_scale=0.5,
+                                          **inits)
+    elif attention_reader == 'Grid':
+        reader_mlp = GridAttentionReader2d(x_dim=obs_dim,
+                                           width=im_dim, height=im_dim, N=read_N,
+                                           img_scale=img_scale, att_scale=0.5,
+                                           **inits)
+
     read_dim = reader_mlp.read_dim # total number of "pixels" read by reader
 
     # MLP for updating belief state based on con_rnn
@@ -311,54 +338,64 @@ if 1:
         SCG.set_sgd_params(lr=lr_scale*learn_rate, mom_1=mom_scale*momentum, mom_2=0.99)
         SCG.set_lam_kld(lam_kld_q2p=0.95, lam_kld_p2q=0.05, \
                         lam_kld_amu=lam_kld_amu, lam_kld_alv=0.1)
-        # perform a minibatch update and record the cost for this batch
 
+        # perform a minibatch update and record the cost for this batch
         Xb = Xtr.take(batch_idx, axis=0)
         result = SCG.train_joint(Xb, Xb)
-
         costs = [(costs[j] + result[j]) for j in range(len(result))]
+
         # output diagnostic information and checkpoint parameters, etc.
-        if ((i % 250) == 0):
-            costs = [(v / 250.0) for v in costs]
+        monitor_freq = 200
+        if ((i % monitor_freq) == 0):
+            SCG.save_model_params("{}_params.pkl".format(result_tag))
+
+            # compute training costs
+            costs = [(v / float(monitor_freq)) for v in costs]
             str1 = "-- batch {0:d} --".format(i)
             str2 = "    total_cost: {0:.4f}".format(costs[0])
             str3 = "    nll_term  : {0:.4f}".format(costs[1])
-            str4 = "    kld_q2p   : {0:.4f}".format(costs[2])
-            str5 = "    kld_p2q   : {0:.4f}".format(costs[3])
-            str6 = "    kld_amu   : {0:.4f}".format(costs[4])
-            str7 = "    kld_alv   : {0:.4f}".format(costs[5])
-            str8 = "    reg_term  : {0:.4f}".format(costs[6])
-            joint_str = "\n".join([str1, str2, str3, str4, str5, str6, str7, str8])
+            #str4 = "    kld_q2p   : {0:.4f}".format(costs[2])
+            #str5 = "    kld_p2q   : {0:.4f}".format(costs[3])
+            #str6 = "    kld_amu   : {0:.4f}".format(costs[4])
+            #str7 = "    kld_alv   : {0:.4f}".format(costs[5])
+            #str8 = "    reg_term  : {0:.4f}".format(costs[6])
+            #joint_str = "\n".join([str1, str2, str3, str4, str5, str6, str7, str8])
+            joint_str = "\n".join([str1, str2])
             print(joint_str)
             out_file.write(joint_str+"\n")
             out_file.flush()
-            costs = [0.0 for v in costs]
-        if ((i % 1000) == 0):
-            SCG.save_model_params("{}_params.pkl".format(result_tag))
-            # compute a small-sample estimate of NLL bound on validation set
+
+            # compute validation costs
             Xva = row_shuffle(Xva)
-            Xb = Xva[:500]
+            Xb = Xva
             va_costs = SCG.compute_nll_bound(Xb, Xb)
             train_learning_curve.append(float(costs[0]))
             valid_learning_curve.append(float(va_costs[0]))
             np.save("{}_train_learning_curve.npy".format(result_tag), train_learning_curve)
             np.save("{}_valid_learning_curve.npy".format(result_tag), valid_learning_curve)
+            print('---------------validation costs---------------')
             str2 = "    total_cost: {}".format(va_costs[0])
             str3 = "    nll_term  : {}".format(va_costs[1])
-            str4 = "    kld_q2p   : {}".format(va_costs[2])
-            str5 = "    kld_p2q   : {}".format(va_costs[3])
-            str6 = "    kld_amu   : {}".format(va_costs[4])
-            str7 = "    kld_alv   : {}".format(va_costs[5])
-            str8 = "    reg_term  : {}".format(va_costs[6])
-            joint_str = "\n".join([str2, str3, str4, str5, str6, str7, str8])
+            #str4 = "    kld_q2p   : {}".format(va_costs[2])
+            #str5 = "    kld_p2q   : {}".format(va_costs[3])
+            #str6 = "    kld_amu   : {}".format(va_costs[4])
+            #str7 = "    kld_alv   : {}".format(va_costs[5])
+            #str8 = "    reg_term  : {}".format(va_costs[6])
+            #joint_str = "\n".join([str2, str3, str4, str5, str6, str7, str8])
+            joint_str = "\n".join([str2, str3])
             print(joint_str)
             out_file.write(joint_str+"\n")
             out_file.flush()
-            costs = [0.0 for v in costs]
-            ###########################################
-            # Sample and draw attention trajectories. #
-            ###########################################
+
+            # Sample and draw attention trajectories
             samp_count = 32
             result = SCG.sample_attention(Xb[:samp_count], Xb[:samp_count])
             post_tag = "b{0:d}".format(i)
             visualize_attention(result, pre_tag=result_tag, post_tag=post_tag)
+
+            # reset costs for next round
+            costs = [0.0 for v in costs]
+
+
+
+
