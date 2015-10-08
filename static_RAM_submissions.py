@@ -37,11 +37,15 @@ from HelperFuncs import construct_masked_data, shift_and_scale_into_01, \
                         row_shuffle, to_fX, one_hot_np
 from MotionRenderers import TrajectoryGenerator, ObjectPainter
 
-RESULT_PATH = "/data/lisatmp4/kruegerd/RAM_RESULTS/"
-filename = os.path.basename(__file__)[:-3]
-res_tag="AAA_"+filename+'_'
 
 if 1:
+    RESULT_PATH = "/data/lisatmp4/kruegerd/RAM_RESULTS/"
+    import os
+    filename = os.path.basename(__file__)[:-3]
+    import sys
+    dataset = sys.argv[1]
+    exit_rate = float(sys.argv[2])
+    res_tag="AAA_" + filename + '_' + dataset + '_exit_rate=' + str(exit_rate) + '_'
     step_type='add'
 
     ##############################
@@ -53,27 +57,41 @@ if 1:
     # Get some training data #
     ##########################
     rng = np.random.RandomState(1234)
-    dataset = '/data/lisatmp4/kruegerd/tfd_data_48x48.pkl'
-    # get training/validation/test images
-    Xtr = np.vstack((load_tfd(dataset, 'unlabeled')[0], load_tfd(dataset, 'train')[0]))
-    Xva = load_tfd(dataset, 'valid')[0]
-    Xte = load_tfd(dataset, 'test')[0]
-    Xtr = to_fX(shift_and_scale_into_01(Xtr))
-    Xva = to_fX(shift_and_scale_into_01(Xva))
-    Xte = to_fX(shift_and_scale_into_01(Xte))
-    obs_dim = Xtr.shape[1]
-    tr_samples = Xtr.shape[0]
-
-    batch_size = 192
-    traj_len = 15
-    im_dim = 48
+    if dataset == 'MNIST':
+        dataset = 'data/mnist.pkl.gz'
+        datasets = load_udm(dataset, as_shared=False, zero_mean=False)
+        # get training/validation/test images
+        Xtr = datasets[0][0]
+        Xva = datasets[1][0]
+        Xte = datasets[2][0]
+        Xtr = to_fX(shift_and_scale_into_01(Xtr))
+        Xva = to_fX(shift_and_scale_into_01(Xva))
+        Xte = to_fX(shift_and_scale_into_01(Xte))
+        obs_dim = Xtr.shape[1]
+        tr_samples = Xtr.shape[0]
+        im_dim = 28
+    elif dataset == 'TFD':
+        dataset = '/data/lisatmp4/kruegerd/tfd_data_48x48.pkl'
+        # get training/validation/test images
+        Xtr = np.vstack((load_tfd(dataset, 'unlabeled')[0], load_tfd(dataset, 'train')[0]))
+        Xva = load_tfd(dataset, 'valid')[0]
+        Xte = load_tfd(dataset, 'test')[0]
+        Xtr = to_fX(shift_and_scale_into_01(Xtr))
+        Xva = to_fX(shift_and_scale_into_01(Xva))
+        Xte = to_fX(shift_and_scale_into_01(Xte))
+        obs_dim = Xtr.shape[1]
+        tr_samples = Xtr.shape[0]
+        im_dim = 48
+    else: 
+        print (dataset + "  dataset not recognized")
+        assert False
 
     ############################################################
     # Setup some parameters for the Iterative Refinement Model #
     ############################################################
-    total_steps = traj_len
+    batch_size = 192
+    total_steps = 15
     init_steps = 3
-    exit_rate = 0.2
     nll_weight = 0.3
     x_dim = obs_dim
     y_dim = obs_dim
@@ -82,7 +100,6 @@ if 1:
     rnn_dim = 512
     mlp_dim = 512
 
-    # TODO: debug me!
     def visualize_attention(result, pre_tag="AAA", post_tag="AAA"):
         seq_len = result[0].shape[0]
         samp_count = result[0].shape[1]
@@ -261,6 +278,10 @@ if 1:
     ################################################################
     # Apply some updates, to check that they aren't totally broken #
     ################################################################
+
+    train_learning_curve = []
+    valid_learning_curve = []
+
     print("Beginning to train the model...")
     out_file = open("{}_results.txt".format(result_tag), 'wb')
     out_file.flush()
@@ -308,12 +329,16 @@ if 1:
             out_file.write(joint_str+"\n")
             out_file.flush()
             costs = [0.0 for v in costs]
-        if ((i % 500) == 0):
+        if ((i % 1000) == 0):
             SCG.save_model_params("{}_params.pkl".format(result_tag))
             # compute a small-sample estimate of NLL bound on validation set
             Xva = row_shuffle(Xva)
             Xb = Xva[:500]
             va_costs = SCG.compute_nll_bound(Xb, Xb)
+            train_learning_curve.append(float(costs[0]))
+            valid_learning_curve.append(float(va_costs[0]))
+            np.save("{}_train_learning_curve.npy".format(result_tag), train_learning_curve)
+            np.save("{}_valid_learning_curve.npy".format(result_tag), valid_learning_curve)
             str2 = "    total_cost: {}".format(va_costs[0])
             str3 = "    nll_term  : {}".format(va_costs[1])
             str4 = "    kld_q2p   : {}".format(va_costs[2])
@@ -330,6 +355,6 @@ if 1:
             # Sample and draw attention trajectories. #
             ###########################################
             samp_count = 32
-            result = SCG.sample_attention(Xb, Xb)
+            result = SCG.sample_attention(Xb[:samp_count], Xb[:samp_count])
             post_tag = "b{0:d}".format(i)
             visualize_attention(result, pre_tag=result_tag, post_tag=post_tag)
