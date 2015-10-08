@@ -53,12 +53,11 @@ if 1:
     # Get some training data #
     ##########################
     rng = np.random.RandomState(1234)
-    dataset = 'data/mnist.pkl.gz'
-    datasets = load_udm(dataset, as_shared=False, zero_mean=False)
+    dataset = '/data/lisatmp4/kruegerd/tfd_data_48x48.pkl'
     # get training/validation/test images
-    Xtr = datasets[0][0]
-    Xva = datasets[1][0]
-    Xte = datasets[2][0]
+    Xtr = np.vstack((load_tfd(dataset, 'unlabeled')[0], load_tfd(dataset, 'train')[0]))
+    Xva = load_tfd(dataset, 'valid')[0]
+    Xte = load_tfd(dataset, 'test')[0]
     Xtr = to_fX(shift_and_scale_into_01(Xtr))
     Xva = to_fX(shift_and_scale_into_01(Xva))
     Xte = to_fX(shift_and_scale_into_01(Xte))
@@ -67,7 +66,7 @@ if 1:
 
     batch_size = 192
     traj_len = 15
-    im_dim = 28
+    im_dim = 48
 
     ############################################################
     # Setup some parameters for the Iterative Refinement Model #
@@ -83,6 +82,7 @@ if 1:
     rnn_dim = 512
     mlp_dim = 512
 
+    # TODO: debug me!
     def visualize_attention(result, pre_tag="AAA", post_tag="AAA"):
         seq_len = result[0].shape[0]
         samp_count = result[0].shape[1]

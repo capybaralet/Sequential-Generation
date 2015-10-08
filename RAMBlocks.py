@@ -47,7 +47,7 @@ class FovAttentionCore2d(Initializable):
         att_scale: initial portion of the image covered by the attention grid
     """
     def __init__(self, x_dim, height, width, N, img_scale, att_scale,
-                 **kwargs):
+                 stay_within_boundary=False, **kwargs):
         super(FovAttentionCore2d, self).__init__(**kwargs)
         self.img_height = height
         self.img_width = width
@@ -235,7 +235,7 @@ class FovAttentionReader2d(FovAttentionCore2d):
         att_scale: initial portion of the image covered by the attention grid
     """
     def __init__(self, x_dim, height, width, N, img_scale, att_scale,
-                 **kwargs):
+                 stay_within_boundary=False, **kwargs):
         super(FovAttentionReader2d, self).__init__(
                 x_dim=x_dim,
                 height=height,
@@ -244,7 +244,7 @@ class FovAttentionReader2d(FovAttentionCore2d):
                 img_scale=img_scale,
                 att_scale=att_scale,
                 name="reader2d",
-                stay_within_boundary=stay_within_boundary,
+                #stay_within_boundary=stay_within_boundary,
                 **kwargs
         )
         return
@@ -273,7 +273,7 @@ class FovAttentionWriter2d(FovAttentionCore2d):
         att_scale: initial portion of the image covered by the attention grid
     """
     def __init__(self, x_dim, height, width, N, img_scale, att_scale,
-                 **kwargs):
+                 stay_within_boundary=False, **kwargs):
         super(FovAttentionWriter2d, self).__init__(
                 x_dim=x_dim,
                 height=height,
@@ -282,7 +282,7 @@ class FovAttentionWriter2d(FovAttentionCore2d):
                 img_scale=img_scale,
                 att_scale=att_scale,
                 name="writer2d",
-                stay_within_boundary=stay_within_boundary,
+                #stay_within_boundary=stay_within_boundary,
                 **kwargs
         )
         return

@@ -281,6 +281,9 @@ def test_seq_cond_gen_static(step_type='add'):
     XYva = to_fX( np.hstack( [Xva, Yva] ) )
     tr_samples = XYtr.shape[0]
     va_samples = XYva.shape[0]
+    #print(tr_samples)
+    #print(va_samples)
+    #assert False
     batch_size = 200
 
     def split_xy(xy_ary):
