@@ -49,11 +49,14 @@ Takes the following command line arguments:
         int
     attention_reader
         Fov or Grid
+    model_type
 """
+
+# FIXME? GenX!
 
 
 if 1:
-    RESULT_PATH = "/data/lisatmp4/kruegerd/RAM_RESULTS/"
+    RESULT_PATH = "/data/lisatmp2/kruegerd/RAM_RESULTS/"
     import os
     filename = os.path.basename(__file__)[:-3]
     import sys
@@ -62,22 +65,32 @@ if 1:
     total_steps = int(sys.argv[3])
     init_steps = int(sys.argv[4])
     attention_reader = sys.argv[5]
+    model_type = sys.argv[6]
     res_tag="AAA_" + filename + '_' + dataset +\
                    '_exit_rate=' + str(exit_rate) +\
                    '_total_steps=' + str(total_steps) +\
                    '_init_steps=' + str(init_steps) +\
                    '_attention_reader=' + attention_reader +\
+                   '_model=' + model_type +\
                    '_'
 
     assert dataset in ['MNIST', 'TFD']
     assert attention_reader in ['Fov', 'Grid']
+    assert model_type in ['SeqCondGenX', 'SeqCondGenRAM', 'SeqCondGenIMP']
+
+    if model_type == 'SeqCondGenX':
+        SeqCondGen_ = SeqCondGenX
+    elif model_type == 'SeqCondGenRAM':
+        SeqCondGen_ = SeqCondGenRAM
+    elif model_type == 'SeqCondGenIMP':
+        SeqCondGen_ = SeqCondGenIMP
 
     step_type='add'
 
     ##############################
     # File tag, for output stuff #
     ##############################
-    result_tag = "{}VID_SCGX_{}".format(RESULT_PATH, res_tag)
+    result_tag = "{}_{}".format(RESULT_PATH, res_tag)
 
     ##########################
     # Get some training data #
@@ -124,6 +137,12 @@ if 1:
     rnn_dim = 512
     mlp_dim = 512
 
+    def sample_batch(np_ary, bs=100):
+        row_count = np_ary.shape[0]
+        samp_idx = npr.randint(low=0,high=row_count,size=(bs,))
+        xb = np_ary.take(samp_idx, axis=0)
+        return xb
+
     def visualize_attention(result, pre_tag="AAA", post_tag="AAA"):
         seq_len = result[0].shape[0]
         samp_count = result[0].shape[1]
@@ -134,7 +153,7 @@ if 1:
             for s2 in range(seq_len):
                 x_samps[idx] = result[0][s2,s1,:]
                 idx += 1
-        file_name = "{0:s}_traj_xs_{1:s}.png".format(pre_tag, post_tag)
+        file_name = "{0:s}_traj_xs_out_{1:s}.png".format(pre_tag, post_tag)
         utils.visualize_samples(x_samps, file_name, num_rows=samp_count)
         # get sequential attention maps
         seq_samps = np.zeros((seq_len*samp_count, obs_dim))
@@ -198,9 +217,14 @@ if 1:
     con_mlp_in = MLP([Identity()], \
                      [                       z_dim, 4*rnn_dim], \
                      name="con_mlp_in", **inits)
-    var_mlp_in = MLP([Identity()], \
-                     [(y_dim + read_dim + att_spec_dim + rnn_dim), 4*rnn_dim], \
-                     name="var_mlp_in", **inits)
+    if model_type == 'SeqCondGEnX':
+        var_mlp_in = MLP([Identity()], \
+                         [(y_dim + read_dim + att_spec_dim + rnn_dim), 4*rnn_dim], \
+                         name="var_mlp_in", **inits)
+    else:
+        var_mlp_in = MLP([Identity()], \
+                         [(read_dim + read_dim + att_spec_dim + rnn_dim), 4*rnn_dim], \
+                         name="var_mlp_in", **inits)
     gen_mlp_in = MLP([Identity()], \
                      [        (read_dim + att_spec_dim + rnn_dim), 4*rnn_dim], \
                      name="gen_mlp_in", **inits)
@@ -261,7 +285,7 @@ if 1:
         var_mlp_out: CondNet for distribution over z given gen_rnn
     """
 
-    SCG = SeqCondGenX(
+    SCG = SeqCondGen_(
                 x_and_y_are_seqs=False,
                 total_steps=total_steps,
                 init_steps=init_steps,
@@ -290,7 +314,7 @@ if 1:
 
     # quick test of attention trajectory sampler
     samp_count = 32
-    Xb = Xte[:samp_count]
+    Xb = sample_batch(Xtr, bs=samp_count)
     result = SCG.sample_attention(Xb, Xb)
     visualize_attention(result, pre_tag=result_tag, post_tag="b0")
 
@@ -360,14 +384,14 @@ if 1:
             #str7 = "    kld_alv   : {0:.4f}".format(costs[5])
             #str8 = "    reg_term  : {0:.4f}".format(costs[6])
             #joint_str = "\n".join([str1, str2, str3, str4, str5, str6, str7, str8])
-            joint_str = "\n".join([str1, str2])
+            joint_str = "\n".join([result_tag, str1, str2, str3])
             print(joint_str)
             out_file.write(joint_str+"\n")
             out_file.flush()
 
             # compute validation costs
             Xva = row_shuffle(Xva)
-            Xb = Xva
+            Xb = Xva[:1000]
             va_costs = SCG.compute_nll_bound(Xb, Xb)
             train_learning_curve.append(float(costs[0]))
             valid_learning_curve.append(float(va_costs[0]))
