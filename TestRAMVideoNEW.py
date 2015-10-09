@@ -44,7 +44,7 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
     ##############################
     # File tag, for output stuff #
     ##############################
-    result_tag = "{}VID_SCGX_{}".format(RESULT_PATH, res_tag)
+    result_tag = "{}VID_SCGRAM_{}".format(RESULT_PATH, res_tag)
 
     batch_size = 192
     traj_len = 25
@@ -220,7 +220,7 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
                      [                       z_dim, 4*rnn_dim], \
                      name="con_mlp_in", **inits)
     var_mlp_in = MLP([Identity()], \
-                     [(y_dim + read_dim + att_spec_dim + rnn_dim), 4*rnn_dim], \
+                     [(read_dim + read_dim + att_spec_dim + rnn_dim), 4*rnn_dim], \
                      name="var_mlp_in", **inits)
     gen_mlp_in = MLP([Identity()], \
                      [        (read_dim + att_spec_dim + rnn_dim), 4*rnn_dim], \
@@ -240,9 +240,9 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
     var_rnn = BiasedLSTM(dim=rnn_dim, ig_bias=2.0, fg_bias=2.0, \
                          name="var_rnn", **rnninits)
 
-    SeqCondGenX_doc_str = \
+    SeqCondGenRAM_doc_str = \
     """
-    SeqCondGenX -- constructs conditional densities under time constraints.
+    SeqCondGenRAM -- constructs conditional densities under time constraints.
 
     This model sequentially constructs a conditional density estimate by taking
     repeated glimpses at the input x, and constructing a hypothesis about the
@@ -282,7 +282,7 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
         var_mlp_out: CondNet for distribution over z given gen_rnn
     """
 
-    SCG = SeqCondGenX(
+    SCG = SeqCondGenRAM(
                 x_and_y_are_seqs=True,
                 total_steps=total_steps,
                 init_steps=init_steps,
@@ -313,7 +313,6 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
     samp_count = 32
     Xb, Yb, Cb = generate_batch_multi(samp_count, xobjs=x_objs, yobjs=y_objs, img_scale=img_scale)
     result = SCG.sample_attention(Xb, Yb)
-    result[0] = Xb
     visualize_attention(result, pre_tag=result_tag, post_tag="b0")
 
     # build the main model functions (i.e. training and cost functions)
@@ -381,5 +380,5 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
 
 if __name__=="__main__":
     #test_seq_cond_gen_sequence(step_type='add', x_objs=['cross', 'circle', 'circle'], y_objs=[0], res_tag="T1")
-    #test_seq_cond_gen_sequence(step_type='add', x_objs=['cross', 'circle'], y_objs=[0,1], res_tag="T2")
-    test_seq_cond_gen_sequence(step_type='add', x_objs=['cross', 'cross', 'circle'], y_objs=[0,1], res_tag="T3")
+    test_seq_cond_gen_sequence(step_type='add', x_objs=['cross', 'circle'], y_objs=[0,1], res_tag="T2")
+    #test_seq_cond_gen_sequence(step_type='add', x_objs=['cross', 'cross', 'circle'], y_objs=[0,1], res_tag="T3")
