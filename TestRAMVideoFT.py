@@ -37,10 +37,27 @@ from HelperFuncs import construct_masked_data, shift_and_scale_into_01, \
                         row_shuffle, to_fX, one_hot_np
 from MotionRenderers import TrajectoryGenerator, ObjectPainter
 
-RESULT_PATH = "RAM_TEST_RESULTS/"
+RESULT_PATH = "/data/lisatmp2/kruegerd/RAM_Video_RESULTS/"
 
-def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
-                               res_tag="AAA"):
+import sys
+res_tag = sys.argv[1]
+
+step_type='jump'
+if res_tag=="T1FT":
+    x_objs=['cross', 'circle', 'circle']
+    y_objs=[0]
+    traj_len = 30
+elif res_tag=="T2FT":
+    x_objs=['cross', 'circle']
+    y_objs=[0,1]
+    traj_len = 30
+elif res_tag=="T3FT":
+    x_objs=['cross', 'cross', 'circle']
+    y_objs=[0,1]
+    traj_len = 10
+
+
+if 1:
     ##############################
     # File tag, for output stuff #
     ##############################
@@ -48,7 +65,6 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
     result_tag = "{}VID_SCGRAM_{}".format(RESULT_PATH, res_tag)
 
     batch_size = 192
-    traj_len = 30
     im_dim = 32
     obs_dim = im_dim*im_dim
 
@@ -400,8 +416,3 @@ def test_seq_cond_gen_sequence(step_type='add', x_objs=['circle'], y_objs=[0], \
             visualize_attention(result, pre_tag=result_tag, post_tag=post_tag)
 
 
-
-if __name__=="__main__":
-    #test_seq_cond_gen_sequence(step_type='jump', x_objs=['cross', 'circle', 'circle'], y_objs=[0], res_tag="T1FT")
-    test_seq_cond_gen_sequence(step_type='jump', x_objs=['cross', 'circle'], y_objs=[0,1], res_tag="T2FT")
-    #test_seq_cond_gen_sequence(step_type='jump', x_objs=['cross', 'cross', 'circle'], y_objs=[0,1], res_tag="T3FT")
